@@ -1,0 +1,7 @@
+.gradle
+.idea
+.settings
+bin
+build
+dist
+***/*.sla

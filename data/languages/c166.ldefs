@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- See Relax specification: Ghidra/Framework/SoftwareModeling/data/languages/language_definitions.rxg -->
+
+<language_definitions>
+   <language processor="Infineon C166"
+            endian="little"
+            size="16"
+            variant="C167"
+            version="1.0"
+            slafile="c166.sla"
+            processorspec="c166.pspec"
+            id="C166:LE:16:default">
+    <description>Infineon C166</description>
+    <compiler name="tasking" spec="c166.cspec" id="tasking"/>
+  </language> 
+</language_definitions>

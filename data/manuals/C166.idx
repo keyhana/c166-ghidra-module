@@ -1,0 +1,5 @@
+@Infineon-c166_ism_v2.0_2001_03.pdf [Instruction Set Manual for the C166 Family of Infineon 16-Bit Single-Chip Microcontrollers, V2.0, Mar. 2001]
+
+add, 46
+addb, 47
+jmps, 97

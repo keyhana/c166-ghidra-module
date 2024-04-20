@@ -1,0 +1,5 @@
+# sleigh specification file for Infineon C166 Processor
+
+@define ENDIAN "little"
+
+@include "c166.sinc"
