@@ -132,42 +132,6 @@ macro Pop(a) {
 	SP = SP + 2;
 }
 
-macro JumpIntra(addr) {
-	IP = addr;
-	local currAddr:3 = inst_start;
-	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(addr);
-	goto [jmpAddr];
-}
-
-macro JumpInter(seg, addr) {
-	CSP = zext(seg);
-	IP = addr;
-	local jmpAddr:3 = (zext(seg) << 16) | zext(addr);
-	goto [jmpAddr];
-}
-
-macro CallIntra(addr) {
-#	local currentAddr:3 = inst_next;
-#	local currentIp:3 = currentAddr & 0xFFFF;
-#	Push(currentIp:2);
-	IP = addr;
-	local currAddr:3 = inst_start;
-	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(addr);
-	call [jmpAddr];
-}
-
-macro CallInter(seg, addr) {
-#	local currentAddr:3 = inst_next;
-#	local currentCsp:3 = currentAddr >> 16;
-#	local currentIp:3 = currentAddr & 0xFFFF;
-#	Push(currentCsp:2);
-#	Push(currentIp:2);
-	CSP = zext(seg);
-	IP = addr;
-	local jmpAddr:3 = (zext(seg) << 16) | zext(addr);
-	call [jmpAddr];
-}
-
 macro ReturnIntra() {
 	Pop(IP);
 	local currAddr:3 = inst_start;
