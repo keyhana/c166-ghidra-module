@@ -17,10 +17,10 @@ define register offset=0 size=1
 	[ RL0 RH0 RL1 RH1 RL2 RH2 RL3 RH3 RL4 RH4 RL5 RH5 RL6 RH6 RL7 RH7 ];
 
 define ram offset=0xFE00 size=2
-	[ DPP0 DPP1 DPP2 DPP3 ];
+	[ DPP0 DPP1 DPP2 DPP3 _ _ MDH MDL CP _ STKOV STKUN ONES ZEROS];
 
 define register offset=0xFE08 size=2
-	[ CSP _ MDH MDL CP SP STKOV STKUN ONES ZEROS ];
+	[ CSP _ _ _ _ SP ];
 
 define register offset=0xFF10 size=2 
 	[ MDC PSW SYSCON ];
@@ -219,47 +219,51 @@ ShortMemAddrB: regoff is ExtrEn=0 & reg_high < 0xf & reg [ regoff = 0xFE00 + (2 
 ShortMemAddrB: regoff is ExtrEn=1 & reg_high < 0xf & reg [ regoff = 0xF000 + (2 * reg); ] { local tmp:3 = zext(regoff:2); export *:1tmp; }
 ShortMemAddrB: reg_low_b is reg_high=0xf & reg_low_b { export reg_low_b; }
 
-BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=0 & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
-BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=1 & bitoff [ regoff = 0xFF00 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
-BitoffAddr: regoff is ExtrEn=1 & bitoff_high_bit=1 & bitoff [ regoff = 0xF100 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
+BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=0 & reg_high < 0xf & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
+BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xFF00 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
+BitoffAddr: regoff is ExtrEn=1 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xF100 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
 BitoffAddr: reg_low is reg_high=0xf & reg_low { export reg_low; }
 
-BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=0 & bitaddr_z [ regoff = 0xFD00 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
-BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=1 & bitaddr_z [ regoff = 0xFF00 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
-BitoffAddrZ: regoff is ExtrEn=1 & z_high_bit=1 & bitaddr_z [ regoff = 0xF100 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
+BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=0 & z < 0xf & bitaddr_z [ regoff = 0xFD00 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
+BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=1 & z < 0xf & bitaddr_z [ regoff = 0xFF00 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
+BitoffAddrZ: regoff is ExtrEn=1 & z_high_bit=1 & z < 0xf & bitaddr_z [ regoff = 0xF100 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
 BitoffAddrZ: z_2 is z=0xf & z_2 { export z_2; }
 
 
-SetAtomic: "#"^range is irang2 [ range = irang2 + 1; Counter = range; globalset(inst_next, Counter); ] { local tmp:1 = range:1; export tmp; }
-SetExtr: SetAtomic is SetAtomic [ ExtrEn = 1; globalset(inst_next, ExtrEn); ] {}
-SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_next, ExtpEn); ] { SetExtpIndCallOther(rwm); }
-SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_next, ExtpEn); Extp=page; globalset(inst_next, Extp); ] {}
-SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_next, ExtsEn); ] { SetExtsIndCallOther(rwm); }
-SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_next, ExtsEn); Exts=seg; globalset(inst_next, Exts); ] {}
-ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_next, ExtrEn); ExtpEn=0; globalset(inst_next, ExtpEn); ExtsEn=0; globalset(inst_next, ExtsEn); ] {}
-ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_next, Counter);] {}
+SetAtomic: "#"^range is irang2 [ range = irang2 + 1; Counter = range; globalset(inst_start, Counter); ] { local tmp:1 = range:1; export tmp; }
+SetExtr: SetAtomic is SetAtomic [ ExtrEn = 1; globalset(inst_start, ExtrEn); ] {}
+SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_start, ExtpEn); ] { SetExtpIndCallOther(rwm); }
+SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=page; globalset(inst_start, Extp); ] {}
+SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); ] { SetExtsIndCallOther(rwm); }
+SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ] {}
+ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); ] {}
+ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_start, Counter);] {}
 
 LongMemAddrW: mem is ExtsEn=0 & ExtpEn=0 & mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }
 LongMemAddrW: memoff is ExtpEn=1 & mem & Extp [ memoff = (Extp<<14) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:2tmp; }
-LongMemAddrW: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:2tmp; }
+LongMemAddrW: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0xFFFF); ] { local tmp:3 = memoff:3; export *:2tmp; }
 
 LongMemAddrB: mem is ExtsEn=0 & ExtpEn=0 & mem { local tmp:3 = GetPagedOffset(mem:2); export *:1tmp; }
 LongMemAddrB: memoff is ExtpEn=1 & mem & Extp [ memoff = (Extp<<14) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
-LongMemAddrB: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
+LongMemAddrB: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0xFFFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
 
 RwnIndW: [rwn] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); export *:2tmp; }
 RwnIndWP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+2; export *:2tmp; }
 RwmIndW: [rwm] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); export *:2tmp; }
 RwmIndWP: [rwm+] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); rwm=rwm+2; export *:2tmp; }
 RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = GetPagedOffsetInd(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local tmp:3 = zext(rwm) + zext(DataImmW); export *[ram]:2 tmp; }
+RwmIndWOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local tmp:3 = zext(rwm) + zext(DataImmW); export *[ram]:2 tmp; }
+RwmIndWOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:2 tmp; }
+RwmIndWOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:2 tmp; }
 
 RwnIndB: [rwn] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); export *:1tmp; }
 RwnIndBP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+1; export *:1tmp; }
 RwmIndB: [rwm] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); export *:1tmp; }
 RwmIndBP: [rwm+] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); rwm=rwm+1; export *:1tmp; }
 RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = GetPagedOffsetInd(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local tmp:3 = zext(rwm) + zext(DataImmW); export *[ram]:1 tmp; }
+RwmIndBOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local tmp:3 = zext(rwm) + zext(DataImmW); export *[ram]:1 tmp; }
+RwmIndBOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
+RwmIndBOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
 
 RWnRWmEqual: is rwn=rwm {}
 
@@ -315,58 +319,58 @@ macro Add(a, b) {
 }
 
 # ADD Rwn, Rwm
-:add rwn, rwm is op=0x00 & rwn & rwm & ExtCountDec {
+:add rwn, rwm is ExtCountDec & op=0x00 & rwn & rwm {
 	Add(rwn, rwm);
 }
 
 # ADD Rwn, [Rwi]
 # ADD Rwn, [Rwi+]
 # ADD Rwn, #data3
-:add rwn, IndexImmW is op=0x08 & rwn & IndexImmW & ExtCountDec {
+:add rwn, IndexImmW is ExtCountDec & op=0x08 & rwn & IndexImmW {
 	Add(rwn, IndexImmW);
 }
 
 # ADD reg, #data16
-:add ShortMemAddrW, DataImmW is op=0x06 & ShortMemAddrW; DataImmW & ExtCountDec {
+:add ShortMemAddrW, DataImmW is ExtCountDec & op=0x06 & ShortMemAddrW; DataImmW {
 	Add(ShortMemAddrW, DataImmW);
 }
 
 # ADD reg, mem
-:add ShortMemAddrW, LongMemAddrW is op=0x02 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:add ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x02 & ShortMemAddrW; LongMemAddrW {
 	Add(ShortMemAddrW, LongMemAddrW);
 }
 
 # ADD mem, reg
-:add LongMemAddrW, ShortMemAddrW is op=0x04 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:add LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x04 & ShortMemAddrW; LongMemAddrW {
 	Add(LongMemAddrW, ShortMemAddrW);
 }
 
 # -------
 
 # ADDB Rbn, Rbm
-:addb rbn, rbm is op=0x01 & rbn & rbm & ExtCountDec {
+:addb rbn, rbm is ExtCountDec & op=0x01 & rbn & rbm {
 	Add(rbn, rbm);
 }
 
 # ADDB Rbn, [Rwi]
 # ADDB Rbn, [Rwi+]
 # ADDB Rwn, #data3
-:addb rbn, IndexImmB is op=0x09 & rbn & IndexImmB & ExtCountDec {
+:addb rbn, IndexImmB is ExtCountDec & op=0x09 & rbn & IndexImmB {
 	Add(rbn, IndexImmB);
 }
 
 # ADDB reg, #data8
-:addb ShortMemAddrB, DataImmB is op=0x07 & ShortMemAddrB; DataImmB & ExtCountDec {
+:addb ShortMemAddrB, DataImmB is ExtCountDec & op=0x07 & ShortMemAddrB; DataImmB {
 	Add(ShortMemAddrB, DataImmB);
 }
 
 # ADDB reg, mem
-:addb ShortMemAddrB, LongMemAddrB is op=0x03 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:addb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x03 & ShortMemAddrB; LongMemAddrB {
 	Add(ShortMemAddrB, LongMemAddrB);
 }
 
 # ADDB mem, reg
-:addb LongMemAddrB, ShortMemAddrB is op=0x05 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:addb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x05 & ShortMemAddrB; LongMemAddrB {
 	Add(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -384,29 +388,29 @@ macro AddCarry(a, b) {
 
 
 # ADDC Rwn, Rwm
-:addc rwn, rwm is op=0x10 & rwn & rwm & ExtCountDec {
+:addc rwn, rwm is ExtCountDec & op=0x10 & rwn & rwm {
 	AddCarry(rwn, rwm);
 }
 
 # ADDC Rwn, [Rwi]
 # ADDC Rwn, [Rwi+]
 # ADDC Rwn, #data3
-:addc rwn, IndexImmW is op=0x18 & rwn & IndexImmW & ExtCountDec {
+:addc rwn, IndexImmW is ExtCountDec & op=0x18 & rwn & IndexImmW {
 	AddCarry(rwn, IndexImmW);
 }
 
 # ADDC reg, #data16
-:addc ShortMemAddrW, DataImmW is op=0x16 & ShortMemAddrW; DataImmW & ExtCountDec {
+:addc ShortMemAddrW, DataImmW is ExtCountDec & op=0x16 & ShortMemAddrW; DataImmW {
 	AddCarry(ShortMemAddrW, DataImmW);
 }
 
 # ADDC reg, mem
-:addc ShortMemAddrW, LongMemAddrW is op=0x12 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:addc ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x12 & ShortMemAddrW; LongMemAddrW {
 	AddCarry(ShortMemAddrW, LongMemAddrW);
 }
 
 # ADDC mem, reg
-:addc LongMemAddrW, ShortMemAddrW is op=0x14 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:addc LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x14 & ShortMemAddrW; LongMemAddrW {
 	AddCarry(LongMemAddrW, ShortMemAddrW);
 }
 
@@ -414,29 +418,29 @@ macro AddCarry(a, b) {
 
 
 # ADDCB Rbn, Rbm
-:addcb rbn, rbm is op=0x11 & rbn & rbm & ExtCountDec {
+:addcb rbn, rbm is ExtCountDec & op=0x11 & rbn & rbm {
 	AddCarry(rbn, rbm);
 }
 
 # ADDCB Rbn, [Rwi]
 # ADDCB Rbn, [Rwi+]
 # ADDCB Rwn, #data3
-:addcb rbn, IndexImmB is op=0x19 & rbn & IndexImmB & ExtCountDec {
+:addcb rbn, IndexImmB is ExtCountDec & op=0x19 & rbn & IndexImmB {
 	AddCarry(rbn, IndexImmB);
 }
 
 # ADDCB reg, #data8
-:addcb ShortMemAddrB, DataImmB is op=0x17 & ShortMemAddrB; DataImmB & ExtCountDec {
+:addcb ShortMemAddrB, DataImmB is ExtCountDec & op=0x17 & ShortMemAddrB; DataImmB {
 	AddCarry(ShortMemAddrB, DataImmB);
 }
 
 # ADDCB reg, mem
-:addcb ShortMemAddrB, LongMemAddrB is op=0x13 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:addcb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x13 & ShortMemAddrB; LongMemAddrB {
 	AddCarry(ShortMemAddrB, LongMemAddrB);
 }
 
 # ADDCB mem, reg
-:addcb LongMemAddrB, ShortMemAddrB is op=0x15 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:addcb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x15 & ShortMemAddrB; LongMemAddrB {
 	AddCarry(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -452,58 +456,58 @@ macro And(a, b) {
 }
 
 # AND Rwn, Rwm
-:and rwn, rwm is op=0x60 & rwn & rwm & ExtCountDec {
+:and rwn, rwm is ExtCountDec & op=0x60 & rwn & rwm {
 	And(rwn, rwm);
 }
 
 # AND Rwn, [Rwi]
 # AND Rwn, [Rwi+]
 # AND Rwn, #data3
-:and rwn, IndexImmW is op=0x68 & rwn & IndexImmW & ExtCountDec {
+:and rwn, IndexImmW is ExtCountDec & op=0x68 & rwn & IndexImmW {
 	And(rwn, IndexImmW);
 }
 
 # AND reg, #data16
-:and ShortMemAddrW, DataImmW is op=0x66 & ShortMemAddrW; DataImmW & ExtCountDec {
+:and ShortMemAddrW, DataImmW is ExtCountDec & op=0x66 & ShortMemAddrW; DataImmW {
 	And(ShortMemAddrW, DataImmW);
 }
 
 # AND reg, mem
-:and [ShortMemAddrW], LongMemAddrW is op=0x62 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:and ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x62 & ShortMemAddrW; LongMemAddrW {
 	And(ShortMemAddrW, LongMemAddrW);
 }
 
 # AND mem, reg
-:and LongMemAddrW, ShortMemAddrW is op=0x64 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:and LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x64 & ShortMemAddrW; LongMemAddrW {
 	And(LongMemAddrW, ShortMemAddrW);
 }
 
 # ---------
 
 # ANDB Rbn, Rbm
-:andb rbn, rbm is op=0x61 & rbn & rbm & ExtCountDec {
+:andb rbn, rbm is ExtCountDec & op=0x61 & rbn & rbm {
 	And(rbn, rbm);
 }
 
 # ANDB Rbn, [Rwi]
 # ANDB Rbn, [Rwi+]
 # ANDB Rwn, #data3
-:andb rbn, IndexImmB is op=0x69 & rbn & IndexImmB & ExtCountDec {
+:andb rbn, IndexImmB is ExtCountDec & op=0x69 & rbn & IndexImmB {
 	And(rbn, IndexImmB);
 }
 
 # ANDB reg, #data8
-:andb ShortMemAddrB, DataImmB is op=0x67 & ShortMemAddrB; DataImmB & ExtCountDec {
+:andb ShortMemAddrB, DataImmB is ExtCountDec & op=0x67 & ShortMemAddrB; DataImmB {
 	And(ShortMemAddrB, DataImmB);
 }
 
 # ANDB reg, mem
-:andb ShortMemAddrB, LongMemAddrB is op=0x63 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:andb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x63 & ShortMemAddrB; LongMemAddrB {
 	And(ShortMemAddrB, LongMemAddrB);
 }
 
 # ANDB mem, reg
-:andb LongMemAddrB, ShortMemAddrB is op=0x65 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:andb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x65 & ShortMemAddrB; LongMemAddrB {
 	And(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -519,58 +523,58 @@ macro Or(a, b) {
 }
 
 # OR Rwn, Rwm
-:or rwn, rwm is op=0x70 & rwn & rwm & ExtCountDec {
+:or rwn, rwm is ExtCountDec & op=0x70 & rwn & rwm {
 	Or(rwn, rwm);
 }
 
 # OR Rwn, [Rwi]
 # OR Rwn, [Rwi+]
 # OR Rwn, #data3
-:or rwn, IndexImmW is op=0x78 & rwn & IndexImmW & ExtCountDec {
+:or rwn, IndexImmW is ExtCountDec & op=0x78 & rwn & IndexImmW {
 	Or(rwn, IndexImmW);
 }
 
 # OR reg, #data16
-:or ShortMemAddrW, DataImmW is op=0x76 & ShortMemAddrW; DataImmW & ExtCountDec {
+:or ShortMemAddrW, DataImmW is ExtCountDec & op=0x76 & ShortMemAddrW; DataImmW {
 	Or(ShortMemAddrW, DataImmW);
 }
 
 # OR reg, mem
-:or ShortMemAddrW, LongMemAddrW is op=0x72 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:or ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x72 & ShortMemAddrW; LongMemAddrW {
 	Or(ShortMemAddrW, LongMemAddrW);
 }
 
 # OR mem, reg
-:or LongMemAddrW, ShortMemAddrW is op=0x74 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:or LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x74 & ShortMemAddrW; LongMemAddrW {
 	Or(LongMemAddrW, ShortMemAddrW);
 }
 
 # ---------
 
 # ORB Rbn, Rbm
-:orb rbn, rbm is op=0x71 & rbn & rbm & ExtCountDec {
+:orb rbn, rbm is ExtCountDec & op=0x71 & rbn & rbm {
 	Or(rbn, rbm);
 }
 
 # ORB Rbn, [Rwi]
 # ORB Rbn, [Rwi+]
 # ORB Rwn, #data3
-:orb rbn, IndexImmB is op=0x79 & rbn & IndexImmB & ExtCountDec {
+:orb rbn, IndexImmB is ExtCountDec & op=0x79 & rbn & IndexImmB {
 	Or(rbn, IndexImmB);
 }
 
 # ORB reg, #data8
-:orb ShortMemAddrB, DataImmB is op=0x77 & ShortMemAddrB; DataImmB & ExtCountDec {
+:orb ShortMemAddrB, DataImmB is ExtCountDec & op=0x77 & ShortMemAddrB; DataImmB {
 	Or(ShortMemAddrB, DataImmB);
 }
 
 # ORB reg, mem
-:orb ShortMemAddrB, LongMemAddrB is op=0x73 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:orb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x73 & ShortMemAddrB; LongMemAddrB {
 	Or(ShortMemAddrB, LongMemAddrB);
 }
 
 # ORB mem, reg
-:orb LongMemAddrB, ShortMemAddrB is op=0x75 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:orb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x75 & ShortMemAddrB; LongMemAddrB {
 	Or(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -586,58 +590,58 @@ macro Sub(a, b) {
 }
 
 # SUB Rwn, Rwm
-:sub rwn, rwm is op=0x20 & rwn & rwm & ExtCountDec {
+:sub rwn, rwm is ExtCountDec & op=0x20 & rwn & rwm {
 	Sub(rwn, rwm);
 }
 
 # SUB Rwn, [Rwi]
 # SUB Rwn, [Rwi+]
 # SUB Rwn, #data3
-:sub rwn, IndexImmW is op=0x28 & rwn & IndexImmW & ExtCountDec {
+:sub rwn, IndexImmW is ExtCountDec & op=0x28 & rwn & IndexImmW {
 	Sub(rwn, IndexImmW);
 }
 
 # SUB reg, #data16
-:sub ShortMemAddrW, DataImmW is op=0x26 & ShortMemAddrW; DataImmW & ExtCountDec {
+:sub ShortMemAddrW, DataImmW is ExtCountDec & op=0x26 & ShortMemAddrW; DataImmW {
 	Sub(ShortMemAddrW, DataImmW);
 }
 
 # SUB reg, mem
-:sub ShortMemAddrW, LongMemAddrW is op=0x22 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:sub ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x22 & ShortMemAddrW; LongMemAddrW {
 	Sub(ShortMemAddrW, LongMemAddrW);
 }
 
 # SUB mem, reg
-:sub LongMemAddrW, ShortMemAddrW is op=0x24 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:sub LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x24 & ShortMemAddrW; LongMemAddrW {
 	Sub(LongMemAddrW, ShortMemAddrW);
 }
 
 # -------
 
 # SUBB Rbn, Rbm
-:subb rbn, rbm is op=0x21 & rbn & rbm & ExtCountDec {
+:subb rbn, rbm is ExtCountDec & op=0x21 & rbn & rbm {
 	Sub(rbn, rbm);
 }
 
 # SUBB Rbn, [Rwi]
 # SUBB Rbn, [Rwi+]
 # SUBB Rwn, #data3
-:subb rbn, IndexImmB is op=0x29 & rbn & IndexImmB & ExtCountDec {
+:subb rbn, IndexImmB is ExtCountDec & op=0x29 & rbn & IndexImmB {
 	Sub(rbn, IndexImmB);
 }
 
 # SUBB reg, #data8
-:subb ShortMemAddrB, DataImmB is op=0x27 & ShortMemAddrB; DataImmB & ExtCountDec {
+:subb ShortMemAddrB, DataImmB is ExtCountDec & op=0x27 & ShortMemAddrB; DataImmB {
 	Sub(ShortMemAddrB, DataImmB);
 }
 
 # SUBB reg, mem
-:subb ShortMemAddrB, LongMemAddrB is op=0x23 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:subb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x23 & ShortMemAddrB; LongMemAddrB {
 	Sub(ShortMemAddrB, LongMemAddrB);
 }
 
 # SUBB mem, reg
-:subb LongMemAddrB, ShortMemAddrB is op=0x25 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:subb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x25 & ShortMemAddrB; LongMemAddrB {
 	Sub(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -654,29 +658,29 @@ macro SubCarry(a, b) {
 }
 
 # SUBC Rwn, Rwm
-:subc rwn, rwm is op=0x30 & rwn & rwm & ExtCountDec {
+:subc rwn, rwm is ExtCountDec & op=0x30 & rwn & rwm {
 	SubCarry(rwn, rwm);
 }
 
 # SUBC Rwn, [Rwi]
 # SUBC Rwn, [Rwi+]
 # SUBC Rwn, #data3
-:subc rwn, IndexImmW is op=0x38 & rwn & IndexImmW & ExtCountDec {
+:subc rwn, IndexImmW is ExtCountDec & op=0x38 & rwn & IndexImmW {
 	SubCarry(rwn, IndexImmW);
 }
 
 # SUBC reg, #data16
-:subc ShortMemAddrW, DataImmW is op=0x36 & ShortMemAddrW; DataImmW & ExtCountDec {
+:subc ShortMemAddrW, DataImmW is ExtCountDec & op=0x36 & ShortMemAddrW; DataImmW {
 	SubCarry(ShortMemAddrW, DataImmW);
 }
 
 # SUBC reg, mem
-:subc ShortMemAddrW, LongMemAddrW is op=0x32 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:subc ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x32 & ShortMemAddrW; LongMemAddrW {
 	SubCarry(ShortMemAddrW, LongMemAddrW);
 }
 
 # SUBC mem, reg
-:subc LongMemAddrW, ShortMemAddrW is op=0x34 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:subc LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x34 & ShortMemAddrW; LongMemAddrW {
 	SubCarry(LongMemAddrW, ShortMemAddrW);
 }
 
@@ -684,29 +688,29 @@ macro SubCarry(a, b) {
 
 
 # SUBCB Rbn, Rbm
-:subcb rbn, rbm is op=0x31 & rbn & rbm & ExtCountDec {
+:subcb rbn, rbm is ExtCountDec & op=0x31 & rbn & rbm {
 	SubCarry(rbn, rbm);
 }
 
 # SUBCB Rbn, [Rwi]
 # SUBCB Rbn, [Rwi+]
 # SUBCB Rwn, #data3
-:subcb rbn, IndexImmB is op=0x39 & rbn & IndexImmB & ExtCountDec {
+:subcb rbn, IndexImmB is ExtCountDec & op=0x39 & rbn & IndexImmB {
 	SubCarry(rbn, IndexImmB);
 }
 
 # SUBCB reg, #data8
-:subcb ShortMemAddrB, DataImmB is op=0x37 & ShortMemAddrB; DataImmB & ExtCountDec {
+:subcb ShortMemAddrB, DataImmB is ExtCountDec & op=0x37 & ShortMemAddrB; DataImmB {
 	SubCarry(ShortMemAddrB, DataImmB);
 }
 
 # SUBCB reg, mem
-:subcb ShortMemAddrB, LongMemAddrB is op=0x33 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:subcb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x33 & ShortMemAddrB; LongMemAddrB {
 	SubCarry(ShortMemAddrB, LongMemAddrB);
 }
 
 # SUBCB mem, reg
-:subcb LongMemAddrB, ShortMemAddrB is op=0x35 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:subcb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x35 & ShortMemAddrB; LongMemAddrB {
 	SubCarry(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -722,58 +726,58 @@ macro Xor(a, b) {
 }
 
 # XOR Rwn, Rwm
-:xor rwn, rwm is op=0x50 & rwn & rwm & ExtCountDec {
+:xor rwn, rwm is ExtCountDec & op=0x50 & rwn & rwm {
 	Xor(rwn, rwm);
 }
 
 # XOR Rwn, [Rwi]
 # XOR Rwn, [Rwi+]
 # XOR Rwn, #data3
-:xor rwn, IndexImmW is op=0x58 & rwn & IndexImmW & ExtCountDec {
+:xor rwn, IndexImmW is ExtCountDec & op=0x58 & rwn & IndexImmW {
 	Xor(rwn, IndexImmW);
 }
 
 # XOR reg, #data16
-:xor ShortMemAddrW, DataImmW is op=0x56 & ShortMemAddrW; DataImmW & ExtCountDec {
+:xor ShortMemAddrW, DataImmW is ExtCountDec & op=0x56 & ShortMemAddrW; DataImmW {
 	Xor(ShortMemAddrW, DataImmW);
 }
 
 # XOR reg, mem
-:xor ShortMemAddrW, LongMemAddrW is op=0x52 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:xor ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x52 & ShortMemAddrW; LongMemAddrW {
 	Xor(ShortMemAddrW, LongMemAddrW);
 }
 
 # XOR mem, reg
-:xor LongMemAddrW, ShortMemAddrW is op=0x54 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:xor LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0x54 & ShortMemAddrW; LongMemAddrW {
 	Xor(LongMemAddrW, ShortMemAddrW);
 }
 
 # ---------
 
 # XORB Rbn, Rbm
-:xorb rbn, rbm is op=0x51 & rbn & rbm & ExtCountDec {
+:xorb rbn, rbm is ExtCountDec & op=0x51 & rbn & rbm {
 	Xor(rbn, rbm);
 }
 
 # XORB Rbn, [Rwi]
 # XORB Rbn, [Rwi+]
 # XORB Rwn, #data3
-:xorb rbn, IndexImmB is op=0x59 & rbn & IndexImmB & ExtCountDec {
+:xorb rbn, IndexImmB is ExtCountDec & op=0x59 & rbn & IndexImmB {
 	Xor(rbn, IndexImmB);
 }
 
 # XORB reg, #data8
-:xorb ShortMemAddrB, DataImmB is op=0x57 & ShortMemAddrB; DataImmB & ExtCountDec {
+:xorb ShortMemAddrB, DataImmB is ExtCountDec & op=0x57 & ShortMemAddrB; DataImmB {
 	Xor(ShortMemAddrB, DataImmB);
 }
 
 # XORB reg, mem
-:xorb ShortMemAddrB, LongMemAddrB is op=0x53 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:xorb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x53 & ShortMemAddrB; LongMemAddrB {
 	Xor(ShortMemAddrB, LongMemAddrB);
 }
 
 # XORB mem, reg
-:xorb LongMemAddrB, ShortMemAddrB is op=0x55 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:xorb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0x55 & ShortMemAddrB; LongMemAddrB {
 	Xor(LongMemAddrB, ShortMemAddrB);
 }
 
@@ -789,12 +793,12 @@ macro Ashr(a, b) {
 }
 
 # ASHR Rwn, Rwm
-:ashr rwn, rwm is op=0xac & rwn & rwm & ExtCountDec {
+:ashr rwn, rwm is ExtCountDec & op=0xac & rwn & rwm {
 	Ashr(rwn, rwm);
 }
 
 # ASHR Rwn, #data4
-:ashr rwm, "#"^data4 is op=0xbc & rwm & data4 & ExtCountDec {
+:ashr rwm, "#"^data4 is ExtCountDec & op=0xbc & rwm & data4 {
 	Ashr(rwm, zext(data4:1));
 }
 
@@ -812,12 +816,12 @@ macro Rol(a, b){
 }
 
 # ROL Rwn, Rwm
-:rol rwn, rwm is op=0x0c & rwn & rwm & ExtCountDec {
+:rol rwn, rwm is ExtCountDec & op=0x0c & rwn & rwm {
 	Rol(rwn, rwm);
 }
 
 # ROL Rwn, #data4
-:rol rwm, "#"^data4 is op=0x1c & rwm & data4 & ExtCountDec {
+:rol rwm, "#"^data4 is ExtCountDec & op=0x1c & rwm & data4 {
 	Rol(rwm, zext(data4:1));
 }
 
@@ -833,12 +837,12 @@ macro Ror(a, b) {
 }
 
 # ROR Rwn, Rwm
-:ror rwn, rwm is op=0x2c & rwn & rwm & ExtCountDec {
+:ror rwn, rwm is ExtCountDec & op=0x2c & rwn & rwm {
 	Ror(rwn, rwm);
 }
 
 # ROR Rwn, #data4
-:ror rwm, "#"^data4 is op=0x3c & rwm & data4 & ExtCountDec {
+:ror rwm, "#"^data4 is ExtCountDec & op=0x3c & rwm & data4 {
 	Ror(rwm, zext(data4:1));
 }
 
@@ -856,12 +860,12 @@ macro Shl(a, b) {
 }
 
 # SHL Rwn, Rwm
-:shl rwn, rwm is op=0x4c & rwn & rwm & ExtCountDec {
+:shl rwn, rwm is ExtCountDec & op=0x4c & rwn & rwm {
 	Shl(rwn, rwm);
 }
 
 # SHL Rwn, #data4
-:shl rwm, "#"^data4 is op=0x5c & rwm & data4 & ExtCountDec {
+:shl rwm, "#"^data4 is ExtCountDec & op=0x5c & rwm & data4 {
 	Shl(rwm, zext(data4:1));
 }
 
@@ -877,13 +881,13 @@ macro Shr(a, b) {
 }
 
 # SHR Rwn, Rwm
-:shr rwn, rwm is op=0x6c & rwn & rwm & ExtCountDec {
+:shr rwn, rwm is ExtCountDec & op=0x6c & rwn & rwm {
 	Shr(rwn, rwm);
 
 }
 
 # SHR Rwn, #data4
-:shr rwm, "#"^data4 is op=0x7c & rwm & data4 & ExtCountDec {
+:shr rwm, "#"^data4 is ExtCountDec & op=0x7c & rwm & data4 {
 	Shr(rwm, zext(data4:1));
 }
 
@@ -895,7 +899,7 @@ macro SetBitValue(data, bit, value) {
 }
 
 # BAND bitaddrZ.z, bitaddrQ.q
-:band BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is op=0x6a & BitoffAddr; BitoffAddrZ & bit_z & bit_q & ExtCountDec {
+:band BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is ExtCountDec & op=0x6a & BitoffAddr; BitoffAddrZ & bit_z & bit_q {
 	local z_bit:2 = (BitoffAddrZ & (1<< bit_z)) >> bit_z;
 	local q_bit:2 = (BitoffAddr & (1<< bit_q)) >> bit_q;
 	setBitwiseFlags(z_bit, q_bit);
@@ -906,16 +910,17 @@ macro SetBitValue(data, bit, value) {
 # -------
 
 # BCLR bitaddrQ.q
-:bclr BitoffAddr^"."^bit_q_0407 is op0003=0xE & BitoffAddr & bit_q_0407 & ExtCountDec {
-	local bit:2 = (BitoffAddr & (1<< bit_q_0407)) >> bit_q_0407;
+:bclr BitoffAddr^"."^bit_q_0407 is ExtCountDec & op0003=0xE & BitoffAddr & bit_q_0407 {
+    local tmp = BitoffAddr;
+	local bit:2 = (tmp & (1<< bit_q_0407)) >> bit_q_0407;
 	setBitClearFlags(bit);
-	BitoffAddr = BitoffAddr & ~(1 << bit_q_0407);
+	BitoffAddr = tmp & ~(1 << bit_q_0407);
 }
 
 # -------
 
 # BCMP bitaddrZ.z, bitaddrQ.q
-:bcmp BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is op=0x2a & BitoffAddr; BitoffAddrZ & bit_z & bit_q & ExtCountDec {
+:bcmp BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is ExtCountDec & op=0x2a & BitoffAddr; BitoffAddrZ & bit_z & bit_q {
 	local z_bit:2 = (BitoffAddrZ & (1<< bit_z)) >> bit_z;
 	local q_bit:2 = (BitoffAddr & (1<< bit_q)) >> bit_q;
 	setBitwiseFlags(z_bit, q_bit);
@@ -924,7 +929,7 @@ macro SetBitValue(data, bit, value) {
 # -------
 
 # BMOV bitaddrZ.z, bitaddrQ.q
-:bmov BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is op=0x4a & BitoffAddr; BitoffAddrZ & bit_z & bit_q & ExtCountDec {
+:bmov BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is ExtCountDec & op=0x4a & BitoffAddr; BitoffAddrZ & bit_z & bit_q {
 	local z_bit:2 = (BitoffAddrZ & (1<< bit_z)) >> bit_z;
 	local q_bit:2 = (BitoffAddr & (1<< bit_q)) >> bit_q;
 	setBitClearFlags(z_bit);
@@ -934,7 +939,7 @@ macro SetBitValue(data, bit, value) {
 # -------
 
 # BMOVN bitaddrZ.z, bitaddrQ.q
-:bmovn BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is op=0x3a & BitoffAddr; BitoffAddrZ & bit_z & bit_q & ExtCountDec {
+:bmovn BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is ExtCountDec & op=0x3a & BitoffAddr; BitoffAddrZ & bit_z & bit_q {
 	local z_bit:2 = (BitoffAddrZ & (1<< bit_z)) >> bit_z;
 	local q_bit:2 = (BitoffAddr & (1<< bit_q)) >> bit_q;
 	setBitClearFlags(z_bit);
@@ -944,7 +949,7 @@ macro SetBitValue(data, bit, value) {
 # -------
 
 # BOR bitaddrZ.z, bitaddrQ.q
-:bor BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is op=0x5a & BitoffAddr; BitoffAddrZ & bit_z & bit_q & ExtCountDec {
+:bor BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is ExtCountDec & op=0x5a & BitoffAddr; BitoffAddrZ & bit_z & bit_q {
 	local z_bit:2 = (BitoffAddrZ & (1<< bit_z)) >> bit_z;
 	local q_bit:2 = (BitoffAddr & (1<< bit_q)) >> bit_q;
 	setBitwiseFlags(z_bit, q_bit);
@@ -955,16 +960,17 @@ macro SetBitValue(data, bit, value) {
 # -------
 
 # BSET bitaddrQ.q
-:bset BitoffAddr^"."^bit_q_0407 is op0003=0xF & BitoffAddr & bit_q_0407 & ExtCountDec {
-	local bit:2 = (BitoffAddr & (1<< bit_q_0407)) >> bit_q_0407;
+:bset BitoffAddr^"."^bit_q_0407 is ExtCountDec & op0003=0xF & BitoffAddr & bit_q_0407 {
+    local tmp = BitoffAddr:2;
+	local bit:2 = (tmp & (1<< bit_q_0407)) >> bit_q_0407;
 	setBitClearFlags(bit);
-	BitoffAddr = BitoffAddr | (1 << bit_q_0407);
+	BitoffAddr = tmp | (1 << bit_q_0407);
 }
 
 # -------
 
 # BXOR bitaddrZ.z, bitaddrQ.q
-:bxor BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is op=0x7a & BitoffAddr; BitoffAddrZ & bit_z & bit_q & ExtCountDec {
+:bxor BitoffAddrZ^"."^bit_z, BitoffAddr^"."^bit_q is ExtCountDec & op=0x7a & BitoffAddr; BitoffAddrZ & bit_z & bit_q {
 	local z_bit:2 = (BitoffAddrZ & (1<< bit_z)) >> bit_z;
 	local q_bit:2 = (BitoffAddr & (1<< bit_q)) >> bit_q;
 	setBitwiseFlags(z_bit, q_bit);
@@ -980,67 +986,67 @@ macro Compare(a, b) {
 }
 
 # CMP Rwn, Rwm
-:cmp rwn, rwm is op=0x40 & rwn & rwm & ExtCountDec {
+:cmp rwn, rwm is ExtCountDec & op=0x40 & rwn & rwm {
 	Compare(rwn, rwm);
 }
 
 # CMP Rwn, [Rwi]
 # CMP Rwn, [Rwi+]
 # CMP Rwn, #data3
-:cmp rwn, IndexImmW is op=0x48 & rwn & IndexImmW & ExtCountDec {
+:cmp rwn, IndexImmW is ExtCountDec & op=0x48 & rwn & IndexImmW {
 	Compare(rwn, IndexImmW);
 }
 
 # CMP reg, #data16
-:cmp ShortMemAddrW, DataImmW is op=0x46 & ShortMemAddrW; DataImmW & ExtCountDec {
+:cmp ShortMemAddrW, DataImmW is ExtCountDec & op=0x46 & ShortMemAddrW; DataImmW {
 	Compare(ShortMemAddrW, DataImmW);
 }
 
 # CMP reg, mem
-:cmp ShortMemAddrW, LongMemAddrW is op=0x42 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:cmp ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0x42 & ShortMemAddrW; LongMemAddrW {
 	Compare(ShortMemAddrW, LongMemAddrW);
 }
 
 # -------
 
 # CMPB Rbn, Rbm
-:cmpb rbn, rbm is op=0x41 & rbn & rbm & ExtCountDec {
+:cmpb rbn, rbm is ExtCountDec & op=0x41 & rbn & rbm {
 	Compare(rbn, rbm);
 }
 
 # CMPB Rbn, [Rwi]
 # CMPB Rbn, [Rwi+]
 # CMPB Rwn, #data3
-:cmpb rbn, IndexImmB is op=0x49 & rbn & IndexImmB & ExtCountDec {
+:cmpb rbn, IndexImmB is ExtCountDec & op=0x49 & rbn & IndexImmB {
 	Compare(rbn, IndexImmB);
 }
 
 # CMPB reg, #data8
-:cmpb ShortMemAddrB, DataImmB is op=0x47 & ShortMemAddrB; DataImmB & ExtCountDec {
+:cmpb ShortMemAddrB, DataImmB is ExtCountDec & op=0x47 & ShortMemAddrB; DataImmB {
 	Compare(ShortMemAddrB, DataImmB);
 }
 
 # CMPB reg, mem
-:cmpb ShortMemAddrB, LongMemAddrB is op=0x43 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:cmpb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0x43 & ShortMemAddrB; LongMemAddrB {
 	Compare(ShortMemAddrB, LongMemAddrB);
 }
 
 # ------
 
 # CMPD1 Rwn, #data4
-:cmpd1 rwm, "#"^data4 is op=0xA0 & rwm & data4 & ExtCountDec {
+:cmpd1 rwm, "#"^data4 is ExtCountDec & op=0xA0 & rwm & data4 {
 	Compare(rwm, zext(data4:1));
 	rwm = rwm - 1;
 }
 
 # CMPD1 Rwn, #data16
-:cmpd1 rwm, DataImmW is op=0xA6 & rwn=0xF & rwm; DataImmW & ExtCountDec {
+:cmpd1 rwm, DataImmW is ExtCountDec & op=0xA6 & rwn=0xF & rwm; DataImmW {
 	Compare(rwm, DataImmW);
 	rwm = rwm - 1;
 }
 
 # CMPD1 Rwn, mem
-:cmpd1 rwm, LongMemAddrW is op=0xA2 & rwn=0xF & rwm; LongMemAddrW & ExtCountDec {
+:cmpd1 rwm, LongMemAddrW is ExtCountDec & op=0xA2 & rwn=0xF & rwm; LongMemAddrW {
 	Compare(rwm, LongMemAddrW);
 	rwm = rwm - 1;
 }
@@ -1048,19 +1054,19 @@ macro Compare(a, b) {
 # ------
 
 # CMPD2 Rwn, #data4
-:cmpd2 rwm, "#"^data4 is op=0xB0 & rwm & data4 & ExtCountDec {
+:cmpd2 rwm, "#"^data4 is ExtCountDec & op=0xB0 & rwm & data4 {
 	Compare(rwm, zext(data4:1));
 	rwm = rwm - 2;
 }
 
 # CMPD2 Rwn, #data16
-:cmpd2 rwm, DataImmW is op=0xB6 & rwn=0xF & rwm; DataImmW & ExtCountDec {
+:cmpd2 rwm, DataImmW is ExtCountDec & op=0xB6 & rwn=0xF & rwm; DataImmW {
 	Compare(rwm, DataImmW);
 	rwm = rwm - 2;
 }
 
 # CMPD2 Rwn, mem
-:cmpd2 rwm, LongMemAddrW is op=0xB2 & rwn=0xF & rwm; LongMemAddrW & ExtCountDec {
+:cmpd2 rwm, LongMemAddrW is ExtCountDec & op=0xB2 & rwn=0xF & rwm; LongMemAddrW {
 	Compare(rwm, LongMemAddrW);
 	rwm = rwm - 2;
 }
@@ -1068,19 +1074,19 @@ macro Compare(a, b) {
 # ------
 
 # CMPI1 Rwn, #data4
-:cmpi1 rwm, "#"^data4 is op=0x80 & rwm & data4 & ExtCountDec {
+:cmpi1 rwm, "#"^data4 is ExtCountDec & op=0x80 & rwm & data4 {
 	Compare(rwm, zext(data4:1));
 	rwm = rwm + 1;
 }
 
 # CMPI1 reg, #data16
-:cmpi1 rwm, DataImmW is op=0x86 & rwn=0xF & rwm; DataImmW & ExtCountDec {
+:cmpi1 rwm, DataImmW is ExtCountDec & op=0x86 & rwn=0xF & rwm; DataImmW {
 	Compare(rwm, DataImmW);
 	rwm = rwm + 1;
 }
 
 # CMPI1 reg, mem
-:cmpi1 rwm, LongMemAddrW is op=0x82 & rwn=0xF & rwm; LongMemAddrW & ExtCountDec {
+:cmpi1 rwm, LongMemAddrW is ExtCountDec & op=0x82 & rwn=0xF & rwm; LongMemAddrW {
 	Compare(rwm, LongMemAddrW);
 	rwm = rwm + 1;
 }
@@ -1088,19 +1094,19 @@ macro Compare(a, b) {
 # ------
 
 # CMPI2 Rwn, #data4
-:cmpi2 rwm, "#"^data4 is op=0x90 & rwm & data4 & ExtCountDec {
+:cmpi2 rwm, "#"^data4 is ExtCountDec & op=0x90 & rwm & data4 {
 	Compare(rwm, zext(data4:1));
 	rwm = rwm + 2;
 }
 
 # CMPI2 Rwn, #data16
-:cmpi2 rwm, DataImmW is op=0x96 & rwn=0xF & rwm; DataImmW & ExtCountDec {
+:cmpi2 rwm, DataImmW is ExtCountDec & op=0x96 & rwn=0xF & rwm; DataImmW {
 	Compare(rwm, DataImmW);
 	rwm = rwm + 2;
 }
 
 # CMPI2 Rwn, mem
-:cmpi2 rwm, LongMemAddrW is op=0x92 & rwn=0xF & rwm; LongMemAddrW & ExtCountDec {
+:cmpi2 rwm, LongMemAddrW is ExtCountDec & op=0x92 & rwn=0xF & rwm; LongMemAddrW {
 	Compare(rwm, LongMemAddrW);
 	rwm = rwm + 2;
 }
@@ -1115,14 +1121,14 @@ macro Cpl(a) {
 }
 
 # CPL Rwn
-:cpl rwn is op=0x91 & rwm=0 & rwn & ExtCountDec {
+:cpl rwn is ExtCountDec & op=0x91 & rwm=0 & rwn {
 	Cpl(rwn);
 }
 
 # ------
 
 # CPLB Rbn
-:cplb rbn is op=0xB1 & rbm=0 & rbn & ExtCountDec {
+:cplb rbn is ExtCountDec & op=0xB1 & rbm=0 & rbn {
 	Cpl(rbn);
 }
 
@@ -1136,183 +1142,183 @@ macro Move(a, b) {
 }
 
 # MOV Rwn, Rwm
-:mov rwn, rwm is op=0xF0 & rwn & rwm & ExtCountDec {
+:mov rwn, rwm is ExtCountDec & op=0xF0 & rwn & rwm {
 	Move(rwn, rwm);
 }
 
 # MOV Rwn, #data4
-:mov rwm, "#"^data4 is op=0xE0 & rwm & data4 & ExtCountDec {
+:mov rwm, "#"^data4 is ExtCountDec & op=0xE0 & rwm & data4 {
 	Move(rwm, zext(data4:1));
 }
 
 # MOV reg, #data16
-:mov ShortMemAddrW, DataImmW is op=0xE6 & ShortMemAddrW; DataImmW & ExtCountDec {
+:mov ShortMemAddrW, DataImmW is ExtCountDec & op=0xE6 & ShortMemAddrW; DataImmW {
 	Move(ShortMemAddrW, DataImmW);
 }
 
 # MOV Rwn, [Rwm]
-:mov rwn, RwmIndW is op=0xA8 & rwn & RwmIndW & ExtCountDec {
+:mov rwn, RwmIndW is ExtCountDec & op=0xA8 & rwn & RwmIndW {
 	Move(rwn, RwmIndW);
 }
 
 # MOV Rwn, [Rwm+]
-:mov rwn, RwmIndWP is op=0x98 & rwn & RwmIndWP & ExtCountDec {
+:mov rwn, RwmIndWP is ExtCountDec & op=0x98 & rwn & RwmIndWP {
 	Move(rwn, RwmIndWP);
 }
 
 # MOV [Rwm], Rwn
-:mov RwmIndW, rwn is op=0xB8 & rwn & RwmIndW & ExtCountDec {
+:mov RwmIndW, rwn is ExtCountDec & op=0xB8 & rwn & RwmIndW {
 	Move(RwmIndW, rwn);
 }
 
 # MOV [-Rwm], Rwn
-:mov RwmIndWM, rwn is op=0x88 & rwn & RwmIndWM & ExtCountDec {
+:mov RwmIndWM, rwn is ExtCountDec & op=0x88 & rwn & RwmIndWM {
 	Move(RwmIndWM, rwn);
 }
 
 # MOV [Rwn], [Rwm]
-:mov RwnIndW, RwmIndW is op=0xC8 & RwnIndW & RwmIndW & ExtCountDec {
+:mov RwnIndW, RwmIndW is ExtCountDec & op=0xC8 & RwnIndW & RwmIndW {
 	Move(RwnIndW, RwmIndW);
 }
 
 # MOV [Rwn+], [Rwm]
-:mov RwnIndWP, RwmIndW is op=0xD8 & RwnIndWP & RwmIndW & ExtCountDec {
+:mov RwnIndWP, RwmIndW is ExtCountDec & op=0xD8 & RwnIndWP & RwmIndW {
 	Move(RwnIndWP, RwmIndW);
 }
 
 # MOV [Rwn], [Rwm+]
-:mov RwnIndW, RwmIndWP is op=0xE8 & RwnIndW & RwmIndWP & ExtCountDec {
+:mov RwnIndW, RwmIndWP is ExtCountDec & op=0xE8 & RwnIndW & RwmIndWP {
 	Move(RwnIndW, RwmIndWP);
 }
 
 # MOV Rwn, [Rwm+#data16]
-:mov rwn, RwmIndWOff is (op=0xD4 & rwn) ... & RwmIndWOff & ExtCountDec {
+:mov rwn, RwmIndWOff is ExtCountDec & (op=0xD4 & rwn) ... & RwmIndWOff {
 	Move(rwn, RwmIndWOff);
 }
 
 # MOV [Rwm+#data16], Rwn
-:mov RwmIndWOff, rwn is (op=0xC4 & rwn) ... & RwmIndWOff & ExtCountDec {
+:mov RwmIndWOff, rwn is ExtCountDec & (op=0xC4 & rwn) ... & RwmIndWOff {
 	Move(RwmIndWOff, rwn);
 }
 
 # MOV [Rwn], mem
-:mov RwmIndW, LongMemAddrW is op=0x84 & rwn=0 & RwmIndW; LongMemAddrW & ExtCountDec {
+:mov RwmIndW, LongMemAddrW is ExtCountDec & op=0x84 & rwn=0 & RwmIndW; LongMemAddrW {
 	Move(RwmIndW, LongMemAddrW);
 }
 
 # MOV mem, [Rwn]
-:mov LongMemAddrW, RwmIndW is op=0x94 & rwn=0 & RwmIndW; LongMemAddrW & ExtCountDec {
+:mov LongMemAddrW, RwmIndW is ExtCountDec & op=0x94 & rwn=0 & RwmIndW; LongMemAddrW {
 	Move(LongMemAddrW, RwmIndW);
 }
 
 # MOV reg, mem
-:mov ShortMemAddrW, LongMemAddrW is op=0xF2 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:mov ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0xF2 & ShortMemAddrW; LongMemAddrW {
 	Move(ShortMemAddrW, LongMemAddrW);
 }
 
 # MOV mem, reg
-:mov LongMemAddrW, ShortMemAddrW is op=0xF6 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:mov LongMemAddrW, ShortMemAddrW is ExtCountDec & op=0xF6 & ShortMemAddrW; LongMemAddrW {
 	Move(LongMemAddrW, ShortMemAddrW);
 }
 
 # ------
 
 # MOVB Rbn, Rbm
-:movb rbn, rbm is op=0xF1 & rbn & rbm & ExtCountDec {
+:movb rbn, rbm is ExtCountDec & op=0xF1 & rbn & rbm {
 	Move(rbn, rbm);
 }
 
 # MOVB Rwn, #data4
-:movb rbm, "#"^data4 is op=0xE1 & rbm & data4 & ExtCountDec {
+:movb rbm, "#"^data4 is ExtCountDec & op=0xE1 & rbm & data4 {
 	Move(rbm, zext(data4:1));
 }
 
 # MOVB reg, #data8
-:movb ShortMemAddrB, DataImmB is op=0xE7 & ShortMemAddrB; DataImmB & ExtCountDec {
+:movb ShortMemAddrB, DataImmB is ExtCountDec & op=0xE7 & ShortMemAddrB; DataImmB {
 	Move(ShortMemAddrB, zext(DataImmB));
 }
 
 # MOVB Rwn, [Rwm]
-:movb rbn, RwmIndB is op=0xA9 & rbn & RwmIndB & ExtCountDec {
+:movb rbn, RwmIndB is ExtCountDec & op=0xA9 & rbn & RwmIndB {
 	Move(rbn, RwmIndB);
 }
 
 # MOVB Rwn, [Rwm+]
-:movb rbn, RwmIndBP is op=0x99 & rbn & RwmIndBP & ExtCountDec {
+:movb rbn, RwmIndBP is ExtCountDec & op=0x99 & rbn & RwmIndBP {
 	Move(rbn, RwmIndBP);
 }
 
 # MOVB [Rwm], Rbn
-:movb RwmIndB, rbn is op=0xB9 & rbn & RwmIndB & ExtCountDec {
+:movb RwmIndB, rbn is ExtCountDec & op=0xB9 & rbn & RwmIndB {
 	Move(RwmIndB, rbn);
 }
 
 # MOVB [-Rwm], Rbn
-:movb RwmIndBM, rbn is op=0x89 & rbn & RwmIndBM & ExtCountDec {
+:movb RwmIndBM, rbn is ExtCountDec & op=0x89 & rbn & RwmIndBM {
 	Move(RwmIndBM, rbn);
 }
 
 # MOVB [Rwn], [Rwm]
-:movb RwnIndB, RwmIndB is op=0xC9 & RwnIndB & RwmIndB & ExtCountDec {
+:movb RwnIndB, RwmIndB is ExtCountDec & op=0xC9 & RwnIndB & RwmIndB {
 	Move(RwnIndB, RwmIndB);
 }
 
 # MOVB [Rwn+], [Rwm]
-:movb RwnIndBP, RwmIndB is op=0xD9 & RwnIndBP & RwmIndB & ExtCountDec {
+:movb RwnIndBP, RwmIndB is ExtCountDec & op=0xD9 & RwnIndBP & RwmIndB {
 	Move(RwnIndBP, RwmIndB);
 }
 
 # MOVB [Rwn], [Rwm+]
-:movb RwnIndB, RwmIndBP is op=0xE9 & RwnIndB & RwmIndBP & ExtCountDec {
+:movb RwnIndB, RwmIndBP is ExtCountDec & op=0xE9 & RwnIndB & RwmIndBP {
 	Move(RwnIndB, RwmIndBP);
 }
 
 # MOVB Rbn, [Rwm+#data16]
-:movb rbn, RwmIndBOff is (op=0xF4 & rbn) ... & RwmIndBOff & ExtCountDec {
+:movb rbn, RwmIndBOff is ExtCountDec & (op=0xF4 & rbn) ... & RwmIndBOff {
 	Move(rbn, RwmIndBOff);
 }
 
 # MOVB [Rwm+#data16], Rbn
-:movb RwmIndBOff, rbn is (op=0xE4 & rbn) ... & RwmIndBOff & ExtCountDec {
+:movb RwmIndBOff, rbn is ExtCountDec & (op=0xE4 & rbn) ... & RwmIndBOff {
 	Move(RwmIndBOff, rbn);
 }
 
 # MOVB [Rwn], mem
-:movb RwmIndB, LongMemAddrB is op=0xA4 & rwn=0 & RwmIndB; LongMemAddrB & ExtCountDec {
+:movb RwmIndB, LongMemAddrB is ExtCountDec & op=0xA4 & rwn=0 & RwmIndB; LongMemAddrB {
 	Move(RwmIndB, LongMemAddrB);
 }
 
 # MOVB mem, [Rwn]
-:movb LongMemAddrB, RwmIndB is op=0xB4 & rwn=0 & RwmIndB; LongMemAddrB & ExtCountDec {
+:movb LongMemAddrB, RwmIndB is ExtCountDec & op=0xB4 & rwn=0 & RwmIndB; LongMemAddrB {
 	Move(LongMemAddrB, RwmIndB);
 }
 
 # MOVB reg, mem
-:movb ShortMemAddrB, LongMemAddrB is op=0xF3 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:movb ShortMemAddrB, LongMemAddrB is ExtCountDec & op=0xF3 & ShortMemAddrB; LongMemAddrB {
 	Move(ShortMemAddrB, LongMemAddrB);
 }
 
 # MOVB mem, reg
-:movb LongMemAddrB, ShortMemAddrB is op=0xF7 & ShortMemAddrB; LongMemAddrB & ExtCountDec {
+:movb LongMemAddrB, ShortMemAddrB is ExtCountDec & op=0xF7 & ShortMemAddrB; LongMemAddrB {
 	Move(LongMemAddrB, ShortMemAddrB);
 }
 
 # ------
 
 # MOVBS Rwn, Rbm
-:movbs rwn, rbm is op=0xD0 & rwn & rbm & ExtCountDec {
-	Move(rwn, sext(rbm));
+:movbs rwm, rbn is ExtCountDec & op=0xD0 & rwm & rbn {
+	Move(rwm, sext(rbn));
 	$(PSW_E) = 0;
 }
 
 # MOVBS reg, mem
-:movbs ShortMemAddrW, LongMemAddrB is op=0xD2 & ShortMemAddrW; LongMemAddrB & ExtCountDec {
+:movbs ShortMemAddrW, LongMemAddrB is ExtCountDec & op=0xD2 & ShortMemAddrW; LongMemAddrB {
 	Move(ShortMemAddrW, sext(LongMemAddrB));
 	$(PSW_E) = 0;
 }
 
 # MOVBS mem, reg
-:movbs LongMemAddrW, ShortMemAddrB is op=0xD5 & ShortMemAddrB; LongMemAddrW & ExtCountDec {
+:movbs LongMemAddrW, ShortMemAddrB is ExtCountDec & op=0xD5 & ShortMemAddrB; LongMemAddrW {
 	Move(LongMemAddrW, sext(ShortMemAddrB));
 	$(PSW_E) = 0;
 }
@@ -1320,21 +1326,24 @@ macro Move(a, b) {
 # ------
 
 # MOVBZ Rwn, Rbm
-:movbz rwn, rbm is op=0xC0 & rwn & rbm & ExtCountDec {
-	Move(rwn, zext(rbm));
+:movbz rwm, rbn is ExtCountDec & op=0xC0 & rwm & rbn {
+	Move(rwm, zext(rbn));
 	$(PSW_E) = 0;
+	$(PSW_N) = 0;
 }
 
 # MOVBZ reg, mem
-:movbz ShortMemAddrW, LongMemAddrB is op=0xC2 & ShortMemAddrW; LongMemAddrB & ExtCountDec {
+:movbz ShortMemAddrW, LongMemAddrB is ExtCountDec & op=0xC2 & ShortMemAddrW; LongMemAddrB {
 	Move(ShortMemAddrW, zext(LongMemAddrB));
 	$(PSW_E) = 0;
+	$(PSW_N) = 0;
 }
 
 # MOVBZ mem, reg
-:movbz LongMemAddrW, ShortMemAddrB is op=0xC5 & ShortMemAddrB; LongMemAddrW & ExtCountDec {
+:movbz LongMemAddrW, ShortMemAddrB is ExtCountDec & op=0xC5 & ShortMemAddrB; LongMemAddrW {
 	Move(LongMemAddrW, zext(ShortMemAddrB));
 	$(PSW_E) = 0;
+	$(PSW_N) = 0;
 }
 
 # ------
@@ -1347,14 +1356,14 @@ macro Neg(a) {
 }
 
 # NEG Rwn
-:neg rwn is op=0x81 & rwn & rwm=0 & ExtCountDec {
+:neg rwn is ExtCountDec & op=0x81 & rwn & rwm=0 {
 	Neg(rwn);
 }
 
 # ------
 
 # NEGB Rwn
-:negb rbn is op=0xA1 & rbn & rbm=0 & ExtCountDec {
+:negb rbn is ExtCountDec & op=0xA1 & rbn & rbm=0 {
 	Neg(rbn);
 }
 
@@ -1364,34 +1373,38 @@ macro Neg(a) {
 define pcodeop __atomic;
 
 # ATOMIC #irang2
-:atomic SetAtomic is op=0xD1 & irang_mode=0 & SetAtomic {
+:atomic SetAtomic is ExtCountDec & op=0xD1 & irang_mode=0 & SetAtomic {
 	__atomic(SetAtomic:1);
 }
 
 # ------
 
 # BFLDH bitoffQ, #mask8, #data8
-:bfldh BitoffAddr, "#"^mask8, DataImmB is op=0x1A & BitoffAddr; DataImmB & mask8 & ExtCountDec {
+:bfldh BitoffAddr, "#"^mask8, DataImmB is ExtCountDec & op=0x1A & BitoffAddr; DataImmB & mask8 {
 	$(PSW_E) = 0;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
-	local hbyte:2 = BitoffAddr >> 8;
+	local tmp = BitoffAddr;
+	local hbyte:2 = tmp >> 8;
 	hbyte = ((hbyte & (~zext(mask8:1))) | zext(DataImmB));
-	BitoffAddr = (BitoffAddr & 0x00FF) | (hbyte << 8);
-	setPostFlags(BitoffAddr);
+	tmp = (tmp & 0x00FF) | (hbyte << 8);
+	BitoffAddr = tmp;
+	setPostFlags(tmp);
 } 
 
 # ------
 
 # BFLDL bitoffQ, #mask8, #data8
-:bfldl BitoffAddr, "#"^mask8, DataImmB is op=0x0A & BitoffAddr; DataImmB & mask8 & ExtCountDec {
+:bfldl BitoffAddr, "#"^mask8, DataImmB is ExtCountDec & op=0x0A & BitoffAddr; DataImmB & mask8 {
 	$(PSW_E) = 0;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
-	local lbyte:2 = BitoffAddr & 0xFF00;
+	local tmp = BitoffAddr;
+	local lbyte:2 = tmp & 0xFF00;
 	lbyte = ((lbyte & (~zext(mask8:1))) | zext(DataImmB));
-	BitoffAddr = (BitoffAddr & 0xFF00) | lbyte;
-	setPostFlags(BitoffAddr);
+	tmp = (tmp & 0xFF00) | lbyte;
+	BitoffAddr = tmp;
+	setPostFlags(tmp);
 } 
 
 # ------
@@ -1399,7 +1412,7 @@ define pcodeop __atomic;
 define pcodeop __disable_watchdog;
 
 # DISWDT
-:diswdt is op_32=0xA5A55AA5 & ExtCountDec {
+:diswdt is ExtCountDec & op_32=0xA5A55AA5 {
 	__disable_watchdog();
 }
 
@@ -1408,7 +1421,7 @@ define pcodeop __disable_watchdog;
 define pcodeop __end_of_init;
 
 # EINT
-:eint is op_32=0xB5B54AB5 & ExtCountDec {
+:eint is ExtCountDec & op_32=0xB5B54AB5 {
 	__end_of_init();
 }
 
@@ -1418,7 +1431,7 @@ define pcodeop __end_of_init;
 define pcodeop __idle;
 
 # IDLE
-:idle is op_32=0x87877887 & ExtCountDec {
+:idle is ExtCountDec & op_32=0x87877887 {
 	__idle();
 }
 
@@ -1427,7 +1440,7 @@ define pcodeop __idle;
 define pcodeop __nop;
 
 # NOP
-:nop is op_noop=0x00CC & ExtCountDec {
+:nop is ExtCountDec & op_noop=0x00CC {
 	__nop();
 }
 
@@ -1436,7 +1449,7 @@ define pcodeop __nop;
 define pcodeop __power_down;
 
 # PWRDN
-:pwrdn is op_32=0x97976897 & ExtCountDec {
+:pwrdn is ExtCountDec & op_32=0x97976897 {
 	__power_down();
 }
 
@@ -1445,7 +1458,7 @@ define pcodeop __power_down;
 define pcodeop __software_reset;
 
 # SRST
-:srst is op_32=0xB7B748B7 & ExtCountDec {
+:srst is ExtCountDec & op_32=0xB7B748B7 {
 	__software_reset();
 }
 
@@ -1454,33 +1467,32 @@ define pcodeop __software_reset;
 define pcodeop __service_watchdog;
 
 # SRVWDT
-:srvwdt is op_32=0xA7A758A7 & ExtCountDec {
+:srvwdt is ExtCountDec & op_32=0xA7A758A7 {
 	__service_watchdog();
 }
 
 # ------
 
 # JB bitaddrQ.q, rel
-:jb BitoffAddr^"."bit_q, rel1623 is op=0x8A & BitoffAddr; bit_z = 0 & bit_q & rel1623 & ExtCountDec {
-	local bit:2 = BitoffAddr & (1 << bit_q);
-	if (!(bit == (1 << bit_q))) goto inst_next;
+:jb BitoffAddr^"."bit_q, rel1623 is ExtCountDec & op=0x8A & BitoffAddr; bit_z = 0 & bit_q & rel1623 {
+	if ((BitoffAddr & (1 << bit_q)) == 0) goto inst_next;
 	goto rel1623;
 }
 
 # ------
 
 # JNB bitaddrQ.q, rel
-:jnb BitoffAddr^"."bit_q, rel1623 is op=0x9A & BitoffAddr; bit_z = 0 & bit_q & rel1623 & ExtCountDec {
-	if (!((BitoffAddr & (1 << bit_q)) == 0)) goto inst_next;
+:jnb BitoffAddr^"."bit_q, rel1623 is ExtCountDec & op=0x9A & BitoffAddr; bit_z = 0 & bit_q & rel1623 {
+	if ((BitoffAddr & (1 << bit_q)) != 0) goto inst_next;
 	goto rel1623;
 }
 
 # ------
 
 # JBC bitaddrQ.q, rel
-:jbc BitoffAddr^"."bit_q, rel1623 is op=0xAA & BitoffAddr; bit_z = 0 & bit_q & rel1623 & ExtCountDec {
-	local bit:2 = BitoffAddr & (1 << bit_q);
-	if (!(bit == (1 << bit_q))) goto inst_next;
+:jbc BitoffAddr^"."bit_q, rel1623 is ExtCountDec & op=0xAA & BitoffAddr; bit_z = 0 & bit_q & rel1623 {
+    local bit:2 = BitoffAddr & (1 << bit_q);
+	if (bit == 0) goto inst_next;
 	BitoffAddr = BitoffAddr & ~(1 << bit_q);
 	setBitClearFlags(bit);
 	goto rel1623;
@@ -1489,9 +1501,9 @@ define pcodeop __service_watchdog;
 # ------
 
 # JNBS bitaddrQ.q, rel
-:jnbs BitoffAddr^"."bit_q, rel1623 is op=0xBA & BitoffAddr; bit_z = 0 & bit_q & rel1623 & ExtCountDec {
+:jnbs BitoffAddr^"."bit_q, rel1623 is ExtCountDec & op=0xBA & BitoffAddr; bit_z = 0 & bit_q & rel1623 {
 	local bit:2 = BitoffAddr & (1 << bit_q);
-	if (!(bit == 0)) goto inst_next;
+	if ((BitoffAddr & (1 << bit_q)) == (1 << bit_q)) goto inst_next;
 	BitoffAddr = BitoffAddr | (1 << bit_q);
 	setBitClearFlags(bit);
 	goto rel1623;
@@ -1500,7 +1512,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # JMPA cc, caddr
-:jmpa cc1215, absCaddr is op=0xEA & rwm = 0 & cc1215; absCaddr & ExtCountDec {
+:jmpa cc1215, absCaddr is ExtCountDec & op=0xEA & rwm = 0 & cc1215; absCaddr {
 	build cc1215;
 	goto absCaddr;
 }
@@ -1508,7 +1520,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # JMPI cc, [Rwn]
-:jmpi cc1215, [rwm] is op=0x9C & cc1215 & rwm & ExtCountDec {
+:jmpi cc1215, [rwm] is ExtCountDec & op=0x9C & cc1215 & rwm {
 	build cc1215;
 	local currAddr:3 = inst_start;
 	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(rwm);
@@ -1518,7 +1530,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # JMPR cc, rel
-:jmpr cc0407, rel0815 is op0003=0xD & cc0407 & rel0815 & ExtCountDec {
+:jmpr cc0407, rel0815 is ExtCountDec & op0003=0xD & cc0407 & rel0815 {
 	build cc0407;
 	goto rel0815;
 }
@@ -1526,14 +1538,14 @@ define pcodeop __service_watchdog;
 # ------
 
 # JMPS seg, rel
-:jmps relSeg is op=0xFA ... & relSeg & ExtCountDec {
+:jmps relSeg is ExtCountDec & op=0xFA ... & relSeg {
 	goto relSeg;
 }
 
 # ------
 
 # CALLA cc, caddr
-:calla cc1215, absCaddr is op=0xCA & rwm = 0 & cc1215; absCaddr & ExtCountDec {
+:calla cc1215, absCaddr is ExtCountDec & op=0xCA & rwm = 0 & cc1215; absCaddr {
 	build cc1215;
 	call absCaddr;
 }
@@ -1541,7 +1553,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # CALLI cc, [Rwn]
-:calli cc1215, [rwm] is op=0xAB & cc1215 & rwm & ExtCountDec {
+:calli cc1215, [rwm] is ExtCountDec & op=0xAB & cc1215 & rwm {
 	build cc1215;
 	IP = rwm;
 	local currAddr:3 = inst_start;
@@ -1552,21 +1564,21 @@ define pcodeop __service_watchdog;
 # ------
 
 # CALLR cc, rel
-:callr rel0815 is op=0xBB & rel0815 & ExtCountDec {
+:callr rel0815 is ExtCountDec & op=0xBB & rel0815 {
 	call rel0815;
 }
 
 # ------
 
 # CALLS seg, rel
-:calls relSeg is op=0xDA ... & relSeg & ExtCountDec {
+:calls relSeg is ExtCountDec & op=0xDA ... & relSeg {
 	call relSeg;
 }
 
 # ------
 
 # pcall reg, caddr
-:pcall ShortMemAddrW, absCaddr is op=0xE2 & ShortMemAddrW; absCaddr & ExtCountDec {
+:pcall ShortMemAddrW, absCaddr is ExtCountDec & op=0xE2 & ShortMemAddrW; absCaddr {
 	Push(ShortMemAddrW);
 	call absCaddr;
 }
@@ -1574,14 +1586,14 @@ define pcodeop __service_watchdog;
 # ------
 
 # RET
-:ret is op_noop=0xCB & ExtCountDec {
+:ret is ExtCountDec & op_noop=0xCB {
 	ReturnIntra();
 }
 
 # ------
 
 # RETI
-:reti is op_noop=0x88FB & ExtCountDec {
+:reti is ExtCountDec & op_noop=0x88FB {
 	ReturnIntra();
 	Pop(PSW);
 }
@@ -1589,7 +1601,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # RETP reg
-:retp ShortMemAddrW is op=0xEB & ShortMemAddrW & ExtCountDec {
+:retp ShortMemAddrW is ExtCountDec & op=0xEB & ShortMemAddrW {
 	Pop(IP);
 	Pop(ShortMemAddrW);
 	$(PSW_E) = (ShortMemAddrW == 0x8000);
@@ -1602,14 +1614,14 @@ define pcodeop __service_watchdog;
 # ------
 
 # RETS
-:rets is op_noop=0xDB & ExtCountDec {
+:rets is ExtCountDec & op_noop=0xDB {
 	ReturnInter();
 }
 
 # ------
 
 # DIV Rwn
-:div rwn is op=0x4B & RWnRWmEqual & rwn & ExtCountDec {
+:div rwn is ExtCountDec & op=0x4B & RWnRWmEqual & rwn {
 	MDL = MDL s/ rwn;
 	MDH = MDH s% rwn;
 	MDC = MDC | (1 << 4);
@@ -1620,7 +1632,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # DIVL Rwn
-:divl rwn is op=0x6B & RWnRWmEqual & rwn & ExtCountDec {
+:divl rwn is ExtCountDec & op=0x6B & RWnRWmEqual & rwn {
 	local md:4 = zext(MDL) | (zext(MDH) << 16);
 	local res:4 = md s/ sext(rwn);
 	local rem:4 = md s% sext(rwn);
@@ -1634,7 +1646,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # DIVLU Rwn
-:divlu rwn is op=0x7B & RWnRWmEqual & rwn & ExtCountDec {
+:divlu rwn is ExtCountDec & op=0x7B & RWnRWmEqual & rwn {
 	local md:4 = zext(MDL) | (zext(MDH) << 16);
 	local res:4 = md / zext(rwn);
 	local rem:4 = md % zext(rwn);
@@ -1648,7 +1660,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # DIVU Rwn
-:divu rwn is op=0x5B & RWnRWmEqual & rwn & ExtCountDec {
+:divu rwn is ExtCountDec & op=0x5B & RWnRWmEqual & rwn {
 	MDL = MDL / rwn;
 	MDH = MDH % rwn;
 	MDC = MDC | (1 << 4);
@@ -1659,7 +1671,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # MUL Rwn, Rwm
-:mul rwn is op=0x0B & rwn & rwm & ExtCountDec {
+:mul rwn is ExtCountDec & op=0x0B & rwn & rwm {
 	local res:4 = sext(rwn) * sext(rwm);
 	MDL = res:2;
 	res = res >> 16;
@@ -1672,7 +1684,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # MULU Rwn, Rwm
-:mulu rwn is op=0x1B & rwn & rwm & ExtCountDec {
+:mulu rwn is ExtCountDec & op=0x1B & rwn & rwm {
 	local res:4 = zext(rwn) * zext(rwm);
 	MDL = res:2;
 	res = res >> 16;
@@ -1685,7 +1697,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # POP Rwn
-:pop ShortMemAddrW is op=0xFC & ShortMemAddrW & ExtCountDec {
+:pop ShortMemAddrW is ExtCountDec & op=0xFC & ShortMemAddrW {
 	Pop(ShortMemAddrW);
 	setPostFlags(ShortMemAddrW);
 }
@@ -1693,7 +1705,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # push Rwn
-:push ShortMemAddrW is op=0xEC & ShortMemAddrW & ExtCountDec {
+:push ShortMemAddrW is ExtCountDec & op=0xEC & ShortMemAddrW {
 	Push(ShortMemAddrW);
 	setPostFlags(ShortMemAddrW);
 }
@@ -1701,7 +1713,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # PRIOR Rwn, Rwm
-:prior rwn, rwm is op=0x2B & rwn & rwm & ExtCountDec {
+:prior rwn, rwm is ExtCountDec & op=0x2B & rwn & rwm {
 	rwn = 0;
 	if (rwm == 0) goto <end>;
 	rwn = lzcount(rwm);
@@ -1716,51 +1728,51 @@ define pcodeop __service_watchdog;
 # ------
 
 # EXTR #irang2
-:extr SetExtr is op=0xD1 & irang_mode=2 & SetExtr { }
+:extr SetExtr is ExtCountDec & op=0xD1 & irang_mode=2 & SetExtr { }
 
 # ------
 
 # EXTP Rwm, #irang2
-:extp SetExtpInd is op=0xDC & irang_mode=1 & SetExtpInd { }
+:extp SetExtpInd is ExtCountDec & op=0xDC & irang_mode=1 & SetExtpInd { }
 
 # EXTP #page, #irang2
-:extp SetExtp is (op=0xD7 & irang_mode=1) ...& SetExtp { }
+:extp SetExtp is ExtCountDec & (op=0xD7 & irang_mode=1) ...& SetExtp { }
 
 # ------
 
 # EXTPR Rwm, #irang2
-:extpr SetExtpInd is op=0xDC & irang_mode=3 & SetExtpInd & SetExtr { }
+:extpr SetExtpInd is ExtCountDec & op=0xDC & irang_mode=3 & SetExtpInd & SetExtr { }
 
 # EXTPR #page, #irang2
-:extpr SetExtp is (op=0xD7 & irang_mode=3 & SetExtr) ... & SetExtp { }
+:extpr SetExtp is ExtCountDec & (op=0xD7 & irang_mode=3 & SetExtr) ... & SetExtp { }
 
 # ------
 
 # EXTS Rwm, #irang2
-:exts SetExtsInd is op=0xDC & irang_mode=0 & SetExtsInd{ }
+:exts SetExtsInd is ExtCountDec & op=0xDC & irang_mode=0 & SetExtsInd{ }
 
 # EXTPR #page, #irang2
-:exts SetExts is (op=0xD7 & irang_mode=0) ... & SetExts { }
+:exts SetExts is ExtCountDec & (op=0xD7 & irang_mode=0) ... & SetExts { }
 
 # ------
 
 # EXTSR Rwm, #irang2
-:extsr SetExtsInd is op=0xDC & irang_mode=2 & SetExtsInd & SetExtr { }
+:extsr SetExtsInd is ExtCountDec & op=0xDC & irang_mode=2 & SetExtsInd & SetExtr { }
 
 # EXTSR #page, #irang2
-:extsr SetExts is (op=0xD7 & irang_mode=2 & SetExtr) ... & SetExts { }
+:extsr SetExts is ExtCountDec & (op=0xD7 & irang_mode=2 & SetExtr) ... & SetExts { }
 
 
 # ------
 
 # SCXT reg, #data16
-:scxt ShortMemAddrW, DataImmW is op=0xC6 & ShortMemAddrW; DataImmW & ExtCountDec {
+:scxt ShortMemAddrW, DataImmW is ExtCountDec & op=0xC6 & ShortMemAddrW; DataImmW {
 	Push(ShortMemAddrW);
 	ShortMemAddrW = DataImmW;
 }
 
 # SCXT reg, mem
-:scxt ShortMemAddrW, LongMemAddrW is op=0xD6 & ShortMemAddrW; LongMemAddrW & ExtCountDec {
+:scxt ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0xD6 & ShortMemAddrW; LongMemAddrW {
 	Push(ShortMemAddrW);
 	ShortMemAddrW = LongMemAddrW;
 }
@@ -1768,7 +1780,7 @@ define pcodeop __service_watchdog;
 # -----
 
 # TRAP #trap7
-:trap trapAddr is op=0x9B & trapAddr {
+:trap trapAddr is ExtCountDec & op=0x9B & trapAddr {
 	call trapAddr;
 	Push(PSW);
 }
