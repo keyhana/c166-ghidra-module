@@ -24,13 +24,14 @@ jobs:
 
       - name: Download Ghidra
         run: |
-          cd $HOME/ghidra
+          mkdir -p build
+          cd build
           wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.1_build/ghidra_11.1.1_PUBLIC_20240614.zip
           unzip ghidra_11.1.1_PUBLIC_20240614.zip
           rm ghidra_11.1.1_PUBLIC_20240614.zip
 
       - name: Set Ghidra environment variable
-        run: echo "GHIDRA_INSTALL_DIR=$HOME/ghidra/ghidra_11.1.1_PUBLIC" >> $GITHUB_ENV
+        run: echo "GHIDRA_INSTALL_DIR=$GITHUB_WORKSPACE/build/ghidra_11.1.1_PUBLIC" >> $GITHUB_ENV
 
       - name: Build with Gradle
         run: ./gradlew buildExtension
