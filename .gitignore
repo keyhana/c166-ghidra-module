@@ -2,8 +2,8 @@ dist/
 ***/*.sla
 
 .antProperties.xml
+gradle.properties
 
-gradle
 .idea
 
 # Created by https://www.toptal.com/developers/gitignore/api/java,eclipse,intellij,gradle
