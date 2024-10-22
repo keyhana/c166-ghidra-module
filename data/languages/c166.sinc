@@ -219,10 +219,20 @@ ShortMemAddrB: regoff is ExtrEn=0 & reg_high < 0xf & reg [ regoff = 0xFE00 + (2 
 ShortMemAddrB: regoff is ExtrEn=1 & reg_high < 0xf & reg [ regoff = 0xF000 + (2 * reg); ] { local tmp:3 = zext(regoff:2); export *:1tmp; }
 ShortMemAddrB: reg_low_b is reg_high=0xf & reg_low_b { export reg_low_b; }
 
+# special cases: ZEROS, ONES
+ShortMemAddrW: "ZEROS" is ExtrEn=0 & reg=0x8e { local tmp:2 = 0x0000; export tmp; }
+ShortMemAddrB: "ZEROS" is ExtrEn=0 & reg=0x8e { local tmp:1 = 0x00;   export tmp; }
+ShortMemAddrW: "ONES"  is ExtrEn=0 & reg=0x8f { local tmp:2 = 0xffff; export tmp; }
+ShortMemAddrB: "ONES"  is ExtrEn=0 & reg=0x8f { local tmp:1 = 0xff;   export tmp; }
+
 BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=0 & reg_high < 0xf & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
 BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xFF00 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
 BitoffAddr: regoff is ExtrEn=1 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xF100 + (2 * bitoff); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
 BitoffAddr: reg_low is reg_high=0xf & reg_low { export reg_low; }
+
+# special cases: ZEROS, ONES
+BitoffAddr: "ZEROS" is ExtrEn=0 & reg=0x8e { local tmp:2 = 0x0000; export tmp; }
+BitoffAddr: "ONES"  is ExtrEn=0 & reg=0x8f { local tmp:2 = 0xffff; export tmp; }
 
 BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=0 & z < 0xf & bitaddr_z [ regoff = 0xFD00 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
 BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=1 & z < 0xf & bitaddr_z [ regoff = 0xFF00 + (2 * bitaddr_z); ] { local tmp:3 = zext(regoff:2); export *:2tmp; }
@@ -246,6 +256,12 @@ LongMemAddrW: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0xF
 LongMemAddrB: mem is ExtsEn=0 & ExtpEn=0 & mem { local tmp:3 = GetPagedOffset(mem:2); export *:1tmp; }
 LongMemAddrB: memoff is ExtpEn=1 & mem & Extp [ memoff = (Extp<<14) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
 LongMemAddrB: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0xFFFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
+
+# special cases: ZEROS, ONES
+LongMemAddrW: "ZEROS" is ExtsEn=0 & ExtpEn=0 & mem=0xff1c { local tmp:2 = 0x0000; export tmp; }
+LongMemAddrB: "ZEROS" is ExtsEn=0 & ExtpEn=0 & mem=0xff1c { local tmp:1 = 0x00;   export tmp; }
+LongMemAddrW: "ONES"  is ExtsEn=0 & ExtpEn=0 & mem=0xff1e { local tmp:2 = 0xffff; export tmp; }
+LongMemAddrB: "ONES"  is ExtsEn=0 & ExtpEn=0 & mem=0xff1e { local tmp:1 = 0xff;   export tmp; }
 
 RwnIndW: [rwn] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); export *:2tmp; }
 RwnIndWP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+2; export *:2tmp; }
