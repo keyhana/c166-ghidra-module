@@ -17,7 +17,7 @@ define register offset=0 size=1
 	[ RL0 RH0 RL1 RH1 RL2 RH2 RL3 RH3 RL4 RH4 RL5 RH5 RL6 RH6 RL7 RH7 ];
 
 define ram offset=0xFE00 size=2
-	[ DPP0 DPP1 DPP2 DPP3 _ _ MDH MDL CP _ STKOV STKUN ONES ZEROS];
+	[ DPP0 DPP1 DPP2 DPP3 _ _ MDH MDL CP _ STKOV STKUN ];
 
 define register offset=0xFE08 size=2
 	[ CSP _ _ _ _ SP ];
