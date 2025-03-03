@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+env:
+  GHIDRA_VERSION: "11.3.1"
+  GHIDRA_BUILD_DATE: "20250219"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,12 +30,12 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.1_build/ghidra_11.1.1_PUBLIC_20240614.zip
-          unzip ghidra_11.1.1_PUBLIC_20240614.zip
-          rm ghidra_11.1.1_PUBLIC_20240614.zip
+          wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VERSION}_build/ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
+          unzip ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
+          rm ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
 
       - name: Set Ghidra environment variable
-        run: echo "GHIDRA_INSTALL_DIR=$GITHUB_WORKSPACE/build/ghidra_11.1.1_PUBLIC" >> $GITHUB_ENV
+        run: echo "GHIDRA_INSTALL_DIR=$GITHUB_WORKSPACE/build/ghidra_${GHIDRA_VERSION}_PUBLIC" >> $GITHUB_ENV
 
       - name: Build with Gradle
         run: ./gradlew buildExtension
