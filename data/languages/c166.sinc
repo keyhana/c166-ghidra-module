@@ -268,7 +268,7 @@ RwnIndWP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+2; expor
 RwmIndW: [rwm] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); export *:2tmp; }
 RwmIndWP: [rwm+] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); rwm=rwm+2; export *:2tmp; }
 RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = GetPagedOffsetInd(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local tmp:3 = zext(rwm) + zext(DataImmW); export *[ram]:2 tmp; }
+RwmIndWOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local off:3 = GetPagedOffsetInd(rwm) + zext(DataImmW); export *[ram]:2 off; }
 RwmIndWOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:2 tmp; }
 RwmIndWOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:2 tmp; }
 
@@ -277,7 +277,7 @@ RwnIndBP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+1; expor
 RwmIndB: [rwm] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); export *:1tmp; }
 RwmIndBP: [rwm+] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); rwm=rwm+1; export *:1tmp; }
 RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = GetPagedOffsetInd(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local tmp:3 = zext(rwm) + zext(DataImmW); export *[ram]:1 tmp; }
+RwmIndBOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local off:3 = GetPagedOffsetInd(rwm) + zext(DataImmW); export *[ram]:1 off; }
 RwmIndBOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
 RwmIndBOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
 
