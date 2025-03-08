@@ -241,13 +241,13 @@ BitoffAddrZ: z_2 is z=0xf & z_2 { export z_2; }
 
 
 SetAtomic: "#"^range is irang2 [ range = irang2 + 1; Counter = range; globalset(inst_start, Counter); ] { local tmp:1 = range:1; export tmp; }
-SetExtr: SetAtomic is SetAtomic [ ExtrEn = 1; globalset(inst_start, ExtrEn); ] {}
+SetExtr: SetAtomic is SetAtomic [ ExtrEn = 1; globalset(inst_start, ExtrEn); ] { local NOP:1 = 0; }
 SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_start, ExtpEn); ] { SetExtpIndCallOther(rwm); }
-SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=page; globalset(inst_start, Extp); ] {}
+SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=page; globalset(inst_start, Extp); ] { local NOP:1 = 0; }
 SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); ] { SetExtsIndCallOther(rwm); }
-SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ] {}
-ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); ] {}
-ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_start, Counter);] {}
+SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ] { local NOP:1 = 0; }
+ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); ] { local NOP:1 = 0; }
+ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_start, Counter);] { local NOP:1 = 0; }
 
 LongMemAddrW: [mem] is ExtsEn=0 & ExtpEn=0 & mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }
 LongMemAddrW: [memoff] is ExtpEn=1 & mem & Extp [ memoff = (Extp<<14) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:2tmp; }
@@ -281,7 +281,7 @@ RwmIndBOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local tmp:3 
 RwmIndBOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
 RwmIndBOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
 
-RWnRWmEqual: is rwn=rwm {}
+RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 
 rel0815: addr is rel [ addr = inst_next + (2 * rel); ] { IP = rel; export *[ram]:2 addr;  }
 rel1623: addr is rel_32 [ addr = inst_next + (2 * rel_32); ] { IP = rel_32; export *[ram]:2 addr;  }
@@ -289,7 +289,7 @@ relSeg: addr is urel; caddr [ addr = (urel << 16) | caddr; ] { IP=caddr:2; CSP=u
 absCaddr: addr is caddr [ addr = (inst_start & 0xFF0000) | caddr; ] { IP=caddr:2; export *[ram]:2 addr; }
 trapAddr: "#"^addr is trap7 [ addr = trap7 << 2; ] { CSP=0; IP=addr:2; export *[ram]:2 addr;}
 
-cc0407:"cc_UC"	is cond0407=0x0 { }
+cc0407:"cc_UC"	is cond0407=0x0 { local NOP:1 = 0; }
 cc0407:"cc_NET"	is cond0407=0x1 { if   ($(PSW_Z) | $(PSW_E)) goto inst_next; }
 cc0407:"cc_EQ"	is cond0407=0x2 { if   !$(PSW_Z) goto inst_next; }
 cc0407:"cc_NE"	is cond0407=0x3 { if    $(PSW_Z) goto inst_next; }
@@ -307,7 +307,7 @@ cc0407:"cc_UGT"	is cond0407=0xE { if   ($(PSW_Z) | $(PSW_C)) goto inst_next; }
 cc0407:"cc_ULE"	is cond0407=0xF { if  !($(PSW_Z) | $(PSW_C)) goto inst_next; }
 
 
-cc1215:"cc_UC"	is cond=0x0 { }
+cc1215:"cc_UC"	is cond=0x0 { local NOP:1 = 0; }
 cc1215:"cc_NET"	is cond=0x1 { if   ($(PSW_Z) | $(PSW_E)) goto inst_next; }
 cc1215:"cc_EQ"	is cond=0x2 { if   !$(PSW_Z) goto inst_next; }
 cc1215:"cc_NE"	is cond=0x3 { if    $(PSW_Z) goto inst_next; }
@@ -1744,39 +1744,39 @@ define pcodeop __service_watchdog;
 # ------
 
 # EXTR #irang2
-:extr SetExtr is ExtCountDec & op=0xD1 & irang_mode=2 & SetExtr { }
+:extr SetExtr is ExtCountDec & op=0xD1 & irang_mode=2 & SetExtr { local NOP:1 = 0; }
 
 # ------
 
 # EXTP Rwm, #irang2
-:extp SetExtpInd is ExtCountDec & op=0xDC & irang_mode=1 & SetExtpInd { }
+:extp SetExtpInd is ExtCountDec & op=0xDC & irang_mode=1 & SetExtpInd { local NOP:1 = 0; }
 
 # EXTP #page, #irang2
-:extp SetExtp is ExtCountDec & (op=0xD7 & irang_mode=1) ...& SetExtp { }
+:extp SetExtp is ExtCountDec & (op=0xD7 & irang_mode=1) ...& SetExtp { local NOP:1 = 0; }
 
 # ------
 
 # EXTPR Rwm, #irang2
-:extpr SetExtpInd is ExtCountDec & op=0xDC & irang_mode=3 & SetExtpInd & SetExtr { }
+:extpr SetExtpInd is ExtCountDec & op=0xDC & irang_mode=3 & SetExtpInd & SetExtr { local NOP:1 = 0; }
 
 # EXTPR #page, #irang2
-:extpr SetExtp is ExtCountDec & (op=0xD7 & irang_mode=3 & SetExtr) ... & SetExtp { }
+:extpr SetExtp is ExtCountDec & (op=0xD7 & irang_mode=3 & SetExtr) ... & SetExtp { local NOP:1 = 0; }
 
 # ------
 
 # EXTS Rwm, #irang2
-:exts SetExtsInd is ExtCountDec & op=0xDC & irang_mode=0 & SetExtsInd{ }
+:exts SetExtsInd is ExtCountDec & op=0xDC & irang_mode=0 & SetExtsInd { local NOP:1 = 0; }
 
 # EXTPR #page, #irang2
-:exts SetExts is ExtCountDec & (op=0xD7 & irang_mode=0) ... & SetExts { }
+:exts SetExts is ExtCountDec & (op=0xD7 & irang_mode=0) ... & SetExts { local NOP:1 = 0; }
 
 # ------
 
 # EXTSR Rwm, #irang2
-:extsr SetExtsInd is ExtCountDec & op=0xDC & irang_mode=2 & SetExtsInd & SetExtr { }
+:extsr SetExtsInd is ExtCountDec & op=0xDC & irang_mode=2 & SetExtsInd & SetExtr { local NOP:1 = 0; }
 
 # EXTSR #page, #irang2
-:extsr SetExts is ExtCountDec & (op=0xD7 & irang_mode=2 & SetExtr) ... & SetExts { }
+:extsr SetExts is ExtCountDec & (op=0xD7 & irang_mode=2 & SetExtr) ... & SetExts { local NOP:1 = 0; }
 
 
 # ------
