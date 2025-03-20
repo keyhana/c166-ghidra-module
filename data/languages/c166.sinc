@@ -1686,7 +1686,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # MUL Rwn, Rwm
-:mul rwn is ExtCountDec & op=0x0B & rwn & rwm {
+:mul rwn, rwm is ExtCountDec & op=0x0B & rwn & rwm {
 	local res:4 = sext(rwn) * sext(rwm);
 	MDL = res:2;
 	res = res >> 16;
@@ -1699,7 +1699,7 @@ define pcodeop __service_watchdog;
 # ------
 
 # MULU Rwn, Rwm
-:mulu rwn is ExtCountDec & op=0x1B & rwn & rwm {
+:mulu rwn, rwm is ExtCountDec & op=0x1B & rwn & rwm {
 	local res:4 = zext(rwn) * zext(rwm);
 	MDL = res:2;
 	res = res >> 16;
