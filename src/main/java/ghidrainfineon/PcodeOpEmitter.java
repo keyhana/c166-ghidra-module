@@ -277,10 +277,10 @@ public class PcodeOpEmitter {
 
 	/**
 	 * Appends the pcode to assign an integer constant to a varnode
-	 * @param varnode
+	 * @param out
 	 * @param constant
 	 */
-	public void emitAssignConstantToVarnode(Varnode out, int constant) {
+	public void emitAssignConstantToVarnode(Varnode out, long constant) {
 		Varnode[] in = new Varnode[1];
 		in[0] = getConstant(constant, out.getSize());
 		PcodeOp op = new PcodeOp(opAddress, seqnum++, PcodeOp.COPY, in, out);
@@ -289,8 +289,8 @@ public class PcodeOpEmitter {
 
 	/**
 	 * Appends the pcode to copy a varnode to another varnode
-	 * @param varnode
-	 * @param constant
+	 * @param out
+	 * @param in
 	 */
 	public void emitCopyVarnode(Varnode out, Varnode in) {
 		PcodeOp op = new PcodeOp(opAddress, seqnum++, PcodeOp.COPY, new Varnode[]{in}, out);

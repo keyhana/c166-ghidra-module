@@ -7,18 +7,14 @@ import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.program.model.lang.*;
 
 public class PcodeInject extends PcodeInjectLibrary {
-	private Map<String, InjectPayloadCallother> implementedOps;
+	private final Map<String, InjectPayloadCallother> implementedOps;
 
 	public PcodeInject(SleighLanguage l) {
 		super(l);
 		implementedOps = new HashMap<>();
-		implementedOps.put("GetPagedOffset", new InjectPagedOffsetDirectC166("offsetDirect", l, this.getUniqueBase()));
+		implementedOps.put("GetPagedOffset", new GetPagedOffset("getPagedOffset", l, this.getUniqueBase()));
 		uniqueBase += 32;
-		implementedOps.put("GetPagedOffsetInd", new InjectPagedOffsetIndirectC166("offsetIndirect", l, this.getUniqueBase()));
-		uniqueBase += 32;
-		implementedOps.put("SetExtpIndCallOther", new InjectSetExtpInd("setExtpInd", l, this.getUniqueBase()));
-		uniqueBase += 32;
-		implementedOps.put("SetExtsIndCallOther", new InjectSetExtsInd("setExtsInd", l, this.getUniqueBase()));
+		implementedOps.put("CopyVarnode", new CopyVarnode("copyVarnode", l, this.getUniqueBase()));
 	}
 	
 	@Override
