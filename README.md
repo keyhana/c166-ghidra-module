@@ -12,12 +12,12 @@ A **Ghidra** module that adds support for disassembling and decompiling the **C1
 
 ## Supported Instructions and CPU Features
 
-| **Category**                    | **Status**                      |
-|---------------------------------|---------------------------------|
-| **Basic Instructions**          | Supported                       |
-| **Extended Instructions**       | Supported                       |
-| **Division and Multiplication** | Needs improvement in decompiler |
-| **User Stack Model**            | Supported                       |
+| **Category**                    | **Status** |
+|---------------------------------|------------|
+| **Basic Instructions**          | Supported  |
+| **Extended Instructions**       | Supported  |
+| **Division and Multiplication** | Supported  |
+| **User Stack Model**            | Supported  |
 
 
 ## Installation
