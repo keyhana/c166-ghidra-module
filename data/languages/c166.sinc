@@ -7,9 +7,7 @@ define space register type=register_space size=2;
 
 define pcodeop segment;
 define pcodeop GetPagedOffset;
-define pcodeop GetPagedOffsetInd;
-define pcodeop SetExtpIndCallOther;
-define pcodeop SetExtsIndCallOther;
+define pcodeop CopyVarnode;
 
 define register offset=0 size=2
 	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 IP ];
@@ -203,12 +201,12 @@ attach variables [ rwi ] [ r0 r1 r2 r3 ];
 DataImmW: "#"^data16  is data16 { local tmp:2 = data16; export tmp; }
 DataImmB: "#"^data16  is data16 { local tmp:1 = data16:1; export tmp; }
 
-IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = GetPagedOffsetInd(rwi); export *:2tmp; }
-IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = GetPagedOffsetInd(rwi); rwi = rwi + 2; export *:2tmp; }
-IndexImmW: "#"^data3 is idx_imm=0 & data3 { local tmp:2 = zext(data3:1); export tmp; }
-IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = GetPagedOffsetInd(rwi); export *:1tmp; }
-IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = GetPagedOffsetInd(rwi); rwi = rwi + 1; export *:1tmp; }
-IndexImmB: "#"^data3 is idx_imm=0 & data3 { local tmp:1 = data3:1; export tmp; }
+IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:2tmp; }
+IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 2; export *:2tmp; }
+IndexImmW: "#"^data3 is idx_imm=0 & data3 { export *[const]:2 data3; }
+IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:1tmp; }
+IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 1; export *:1tmp; }
+IndexImmB: "#"^data3 is idx_imm=0 & data3 { export *[const]:1 data3; }
 
 
 ShortMemAddrW: regoff is ExtrEn=0 & reg_high < 0xf & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:3 = regoff; export *:2tmp; }
@@ -241,20 +239,15 @@ BitoffAddrZ: z_2 is z=0xf & z_2 { export z_2; }
 
 SetAtomic: "#"^range is irang2 [ range = irang2 + 1; Counter = range; globalset(inst_start, Counter); ] { local tmp:1 = range:1; export tmp; }
 SetExtr: SetAtomic is SetAtomic [ ExtrEn = 1; globalset(inst_start, ExtrEn); ] { local NOP:1 = 0; }
-SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_start, ExtpEn); ] { SetExtpIndCallOther(rwm); }
+SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=0; globalset(inst_start, Extp); ] { local NOP:1 = 0; }
 SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=page; globalset(inst_start, Extp); ] { local NOP:1 = 0; }
-SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); ] { SetExtsIndCallOther(rwm); }
+SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=0; globalset(inst_start, Exts); ] { local NOP:1 = 0; }
 SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ] { local NOP:1 = 0; }
 ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); ] { local NOP:1 = 0; }
 ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_start, Counter);] { local NOP:1 = 0; }
 
-LongMemAddrW: mem is ExtsEn=0 & ExtpEn=0 & mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }
-LongMemAddrW: memoff is ExtpEn=1 & mem & Extp [ memoff = (Extp<<14) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:2tmp; }
-LongMemAddrW: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0xFFFF); ] { local tmp:3 = memoff:3; export *:2tmp; }
-
-LongMemAddrB: mem is ExtsEn=0 & ExtpEn=0 & mem { local tmp:3 = GetPagedOffset(mem:2); export *:1tmp; }
-LongMemAddrB: memoff is ExtpEn=1 & mem & Extp [ memoff = (Extp<<14) | (mem & 0x3FFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
-LongMemAddrB: memoff is ExtsEn=1 & mem & Exts [ memoff = (Exts<<16) | (mem & 0xFFFF); ] { local tmp:3 = memoff:3; export *:1tmp; }
+LongMemAddrW: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }
+LongMemAddrB: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:1tmp; }
 
 # special cases: ZEROS, ONES
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { local tmp:2 = 0x0000; local reference:2 = *:2(memoff:3); export tmp; }
@@ -262,23 +255,19 @@ LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + me
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; local reference:2 = *:2(memoff:3); export tmp; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff;   local reference:2 = *:2(memoff:3); export tmp; }
 
-RwnIndW: [rwn] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); export *:2tmp; }
-RwnIndWP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+2; export *:2tmp; }
-RwmIndW: [rwm] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); export *:2tmp; }
-RwmIndWP: [rwm+] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); rwm=rwm+2; export *:2tmp; }
-RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = GetPagedOffsetInd(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local off:3 = GetPagedOffsetInd(rwm) + zext(DataImmW); export *[ram]:2 off; }
-RwmIndWOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:2 tmp; }
-RwmIndWOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:2 tmp; }
+RwnIndW: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:2tmp; }
+RwnIndWP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+2; export *:2tmp; }
+RwmIndW: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
+RwmIndWP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+2; export *:2tmp; }
+RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm) + GetPagedOffset(DataImmW); export *[ram]:2 off; }
 
-RwnIndB: [rwn] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); export *:1tmp; }
-RwnIndBP: [rwn+] is rwn { local tmp:3 = GetPagedOffsetInd(rwn); rwn=rwn+1; export *:1tmp; }
-RwmIndB: [rwm] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); export *:1tmp; }
-RwmIndBP: [rwm+] is rwm { local tmp:3 = GetPagedOffsetInd(rwm); rwm=rwm+1; export *:1tmp; }
-RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = GetPagedOffsetInd(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is ExtsEn=0 & ExtpEn=0 & rwm; DataImmW { local off:3 = GetPagedOffsetInd(rwm) + zext(DataImmW); export *[ram]:1 off; }
-RwmIndBOff: [rwm+"#"^memoff] is ExtpEn=1 & rwm & Extp; data16 [ memoff = (Extp<<14) | (data16 & 0x3FFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
-RwmIndBOff: [rwm+"#"^memoff] is ExtsEn=1 & rwm & Exts; data16 [ memoff = (Exts<<16) | (data16 & 0xFFFF); ] { local tmp:3 = zext(rwm) + memoff; export *[ram]:1 tmp; }
+RwnIndB: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:1tmp; }
+RwnIndBP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+1; export *:1tmp; }
+RwmIndB: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
+RwmIndBP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+1; export *:1tmp; }
+RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm) + GetPagedOffset(DataImmW); export *[ram]:1 off; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 
