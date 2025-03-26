@@ -15,14 +15,13 @@ define register offset=0 size=2
 define register offset=0 size=1
 	[ RL0 RH0 RL1 RH1 RL2 RH2 RL3 RH3 RL4 RH4 RL5 RH5 RL6 RH6 RL7 RH7 ];
 
-define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 _ _ MDH MDL ];
+define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 ];
+define ram offset=0xFE0C size=2 [ MDH MDL ];
+define ram offset=0xFF10 size=2 [ MDC ];
 
 define register offset=0xFE08 size=2 [ CSP ];
-define register offset=0xFE12 size=2 [ SP ];
+define register offset=0xFF12 size=2 [ PSW ];
 
-define register offset=0xFF10 size=2 
-	[ MDC PSW ];
-	
 define register offset=0x50 size=4 contextreg;
 define context contextreg
 	Counter = (0,2)
@@ -1673,9 +1672,8 @@ define pcodeop __service_watchdog;
 # MUL Rwn, Rwm
 :mul rwn, rwm is ExtCountDec & op=0x0B & rwn & rwm {
 	local res:4 = sext(rwn) * sext(rwm);
-	MDL = res:2;
-	res = res >> 16;
-	MDH = res:2;
+	MDL = res[0,16];
+	MDH = res[16,16];
 	MDC = MDC | (1 << 4);
 	setDivFlags(rwn);
 	setPostFlags(res);
@@ -1686,9 +1684,8 @@ define pcodeop __service_watchdog;
 # MULU Rwn, Rwm
 :mulu rwn, rwm is ExtCountDec & op=0x1B & rwn & rwm {
 	local res:4 = zext(rwn) * zext(rwm);
-	MDL = res:2;
-	res = res >> 16;
-	MDH = res:2;
+	MDL = res[0,16];
+	MDH = res[16,16];
 	MDC = MDC | (1 << 4);
 	setDivFlags(rwn);
 	setPostFlags(res);
