@@ -125,7 +125,7 @@ public class PcodeOpEmitter {
 		uniqueBase = uniqBase;
 		opAddress = opAddr;
 		seqnum = 0;
-		spVarnode = findRegister("SP");
+		spVarnode = findRegister("r0");
 		defSpaceId = getConstant(defSpace.getSpaceID(), 4);
 	}
 
