@@ -5,11 +5,22 @@
 <processor_spec>
 
     <properties>
+        <property key="addressesDoNotAppearDirectlyInCode" value="true"/>
         <property key="pcodeInjectLibraryClass" value="ghidrainfineon.PcodeInject"/>
     </properties>
 
     <programcounter register="IP"/>
     <data_space space="ram"/>
+
+    <register_data>
+        <register name="contextreg" hidden="true"/>
+        <register name="Counter" hidden="true"/>
+        <register name="ExtrEn" hidden="true"/>
+        <register name="ExtpEn" hidden="true"/>
+        <register name="ExtsEn" hidden="true"/>
+        <register name="Extp" hidden="true"/>
+        <register name="Exts" hidden="true"/>
+    </register_data>
 
     <default_symbols>
         <symbol name="RESET_VECTOR" address="ram:0000" entry="true" type="code"/>
