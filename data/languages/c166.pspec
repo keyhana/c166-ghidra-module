@@ -5,6 +5,7 @@
 <processor_spec>
 
     <properties>
+        <property key="addressesDoNotAppearDirectlyInCode" value="true"/>
         <property key="pcodeInjectLibraryClass" value="ghidrainfineon.PcodeInject"/>
     </properties>
 
