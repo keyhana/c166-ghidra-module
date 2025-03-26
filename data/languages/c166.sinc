@@ -5,9 +5,10 @@ define alignment=2;
 define space ram type=ram_space size=3 default;
 define space register type=register_space size=2;
 
-define pcodeop segment;
 define pcodeop GetPagedOffset;
 define pcodeop CopyVarnode;
+define pcodeop push;
+define pcodeop pop;
 
 define register offset=0 size=2
 	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 IP ];
@@ -118,15 +119,11 @@ macro setDivFlags(a) {
 }
 
 macro Push(a) {
-	SP = SP - 2;
-	local stack:3 = segment(0:2, SP);
-	*stack = a;
+	push(a);
 }
 
 macro Pop(a) {
-	local stack:3 = segment(0:2, SP);
-	a = *stack;
-	SP = SP + 2;
+	pop(a);
 }
 
 macro ReturnIntra() {
@@ -135,15 +132,6 @@ macro ReturnIntra() {
 	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(IP);
 	return [jmpAddr];
 }
-
-
-macro ReturnInter() {
-	Pop(IP);
-	Pop(CSP);
-	local jmpAddr:3 = (zext(CSP) << 16) | zext(IP);
-	return [jmpAddr];
-}
-
 
 define token instr_16(16)
 	op        = (0, 7)
@@ -1394,7 +1382,7 @@ define pcodeop __atomic;
 	tmp = (tmp & 0x00FF) | (hbyte << 8);
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
-} 
+}
 
 # ------
 
@@ -1409,7 +1397,7 @@ define pcodeop __atomic;
 	tmp = (tmp & 0xFF00) | lbyte;
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
-} 
+}
 
 # ------
 
@@ -1551,6 +1539,7 @@ define pcodeop __service_watchdog;
 # CALLA cc, caddr
 :calla cc1215, absCaddr is ExtCountDec & op=0xCA & rwm = 0 & cc1215; absCaddr {
 	build cc1215;
+	Push(IP);
 	call absCaddr;
 }
 
@@ -1559,6 +1548,7 @@ define pcodeop __service_watchdog;
 # CALLI cc, [Rwn]
 :calli cc1215, [rwm] is ExtCountDec & op=0xAB & cc1215 & rwm {
 	build cc1215;
+	Push(IP);
 	IP = rwm;
 	local currAddr:3 = inst_start;
 	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(rwm);
@@ -1567,8 +1557,9 @@ define pcodeop __service_watchdog;
 
 # ------
 
-# CALLR cc, rel
+# CALLR rel
 :callr rel0815 is ExtCountDec & op=0xBB & rel0815 {
+	Push(IP);
 	call rel0815;
 }
 
@@ -1576,6 +1567,8 @@ define pcodeop __service_watchdog;
 
 # CALLS seg, rel
 :calls relSeg is ExtCountDec & op=0xDA ... & relSeg {
+	Push(CSP);
+	Push(IP);
 	call relSeg;
 }
 
@@ -1619,7 +1612,10 @@ define pcodeop __service_watchdog;
 
 # RETS
 :rets is ExtCountDec & op_noop=0xDB {
-	ReturnInter();
+	Pop(IP);
+	Pop(CSP);
+	local jmpAddr:3 = (zext(CSP) << 16) | zext(IP);
+	return [jmpAddr];
 }
 
 # ------

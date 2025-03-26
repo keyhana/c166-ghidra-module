@@ -17,7 +17,7 @@ A **Ghidra** module that adds support for disassembling and decompiling the **C1
 | **Basic Instructions**          | Supported                       |
 | **Extended Instructions**       | Supported                       |
 | **Division and Multiplication** | Needs improvement in decompiler |
-| **User Stack Model**            | Needs improvement               |
+| **User Stack Model**            | Supported                       |
 
 
 ## Installation
