@@ -185,8 +185,8 @@ attach variables [ rwn rwm reg_low z z_2 ] [ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r
 attach variables [ rbn rbm reg_low_b ] [ RL0 RH0 RL1 RH1 RL2 RH2 RL3 RH3 RL4 RH4 RL5 RH5 RL6 RH6 RL7 RH7 ];
 attach variables [ rwi ] [ r0 r1 r2 r3 ];
 
-DataImmW: "#"^data16  is data16 { local tmp:2 = data16; export tmp; }
-DataImmB: "#"^data16  is data16 { local tmp:1 = data16:1; export tmp; }
+DataImmW: "#"^data16  is data16 { export *[const]:2 data16; }
+DataImmB: "#"^data16  is data16 { export *[const]:1 data16; }
 
 IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:2tmp; }
 IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 2; export *:2tmp; }
