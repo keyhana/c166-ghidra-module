@@ -8,17 +8,6 @@
         <property key="pcodeInjectLibraryClass" value="ghidrainfineon.PcodeInject"/>
     </properties>
 
-    <segmentop space="ram" userop="segment" farpointer="no">
-        <pcode>
-            <input name="base" size="2"/>
-            <input name="inner" size="2"/>
-            <output name="res" size="3"/>
-            <body><![CDATA[
-	      res = (zext(base) << 14) | (zext(inner) & 0x3FFF);
-	    ]]></body>
-        </pcode>
-    </segmentop>
-
     <programcounter register="IP"/>
     <data_space space="ram"/>
 
