@@ -10,6 +10,7 @@
             version="1.0"
             slafile="c166.sla"
             processorspec="c166.pspec"
+            manualindexfile="../manuals/C166.idx"
             id="C166:LE:16:default">
     <description>Infineon C166</description>
     <compiler name="tasking" spec="c166.cspec" id="tasking"/>
