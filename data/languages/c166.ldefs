@@ -15,4 +15,16 @@
     <description>Infineon C166</description>
     <compiler name="tasking" spec="c166.cspec" id="tasking"/>
   </language> 
+  <language processor="Infineon C166"
+            endian="little"
+            size="16"
+            variant="C167CS"
+            version="1.0"
+            slafile="c166.sla"
+            processorspec="c167.pspec"
+            manualindexfile="../manuals/C166.idx"
+            id="C166:LE:16:default">
+    <description>Infineon C167CS Dual CAN</description>
+    <compiler name="tasking" spec="c166.cspec" id="tasking"/>
+  </language> 
 </language_definitions>
