@@ -4,7 +4,7 @@
 
 <processor_spec>
 
-	<properties>
+    <properties>
         <property key="addressesDoNotAppearDirectlyInCode" value="true"/>
         <property key="pcodeInjectLibraryClass" value="ghidrainfineon.PcodeInject"/>
     </properties>
@@ -22,8 +22,8 @@
         <register name="Exts" hidden="true"/>
     </register_data>
 	
-	<default_symbols>
-		<!-- CAN2 Region -->
+    <default_symbols>
+        <!-- CAN2 Region -->
         <symbol name="C2CSR" address="ram:0xEE00" size="2"/>
         <symbol name="C2IR" address="ram:0xEE02" size="2"/>
         <symbol name="C2BTR" address="ram:0xEE04" size="2"/>
@@ -92,7 +92,7 @@
         <symbol name="C2AR15" address="ram:0xEEF2" size="2"/>
         <symbol name="C2LAR15" address="ram:0xEEF4" size="2"/>
         <symbol name="C2MCFG15" address="ram:0xEEF6" size="2"/>
-		<!-- CAN1 Region -->
+        <!-- CAN1 Region -->
         <symbol name="C1CSR" address="ram:0xEF00" size="2"/>
         <symbol name="C1IR" address="ram:0xEF02" size="2"/>
         <symbol name="C1BTR" address="ram:0xEF04" size="2"/>
@@ -162,7 +162,7 @@
         <symbol name="C1LAR15" address="ram:0xEFF4" size="2"/>
         <symbol name="C1MCFG15" address="ram:0xEFF6" size="2"/>
         <!-- ESFR Region -->
-		<symbol name="XPERCON" address="ram:0xF024" size="2"/>
+        <symbol name="XPERCON" address="ram:0xF024" size="2"/>
         <symbol name="PT0" address="ram:0xF030" size="2"/>
         <symbol name="PT1" address="ram:0xF032" size="2"/>
         <symbol name="PT2" address="ram:0xF034" size="2"/>
@@ -180,25 +180,25 @@
         <symbol name="IDMEM" address="ram:0xF07A" size="2"/>
         <symbol name="IDCHIP" address="ram:0xF07C" size="2"/>
         <symbol name="IDMANUF" address="ram:0xF07E" size="2"/>
-		<symbol name="POCON0L" address="ram:0xF080" size="2"/>
-		<symbol name="POCON0H" address="ram:0xF082" size="2"/>
-		<symbol name="POCON1L" address="ram:0xF084" size="2"/>
-		<symbol name="POCON1H" address="ram:0xF086" size="2"/>
-		<symbol name="POCON2" address="ram:0xF088" size="2"/>
-		<symbol name="POCON3" address="ram:0xF08A" size="2"/>
-		<symbol name="POCON4" address="ram:0xF08C" size="2"/>
-		<symbol name="POCON6" address="ram:0xF09E" size="2"/>
-		<symbol name="POCON7" address="ram:0xF090" size="2"/>
-		<symbol name="POCON8" address="ram:0xF092" size="2"/>
+        <symbol name="POCON0L" address="ram:0xF080" size="2"/>
+        <symbol name="POCON0H" address="ram:0xF082" size="2"/>
+        <symbol name="POCON1L" address="ram:0xF084" size="2"/>
+        <symbol name="POCON1H" address="ram:0xF086" size="2"/>
+        <symbol name="POCON2" address="ram:0xF088" size="2"/>
+        <symbol name="POCON3" address="ram:0xF08A" size="2"/>
+        <symbol name="POCON4" address="ram:0xF08C" size="2"/>
+        <symbol name="POCON6" address="ram:0xF09E" size="2"/>
+        <symbol name="POCON7" address="ram:0xF090" size="2"/>
+        <symbol name="POCON8" address="ram:0xF092" size="2"/>
         <symbol name="ADDAT2" address="ram:0xF0A0" size="2"/>
-		<symbol name="POCON20" address="ram:0xF0AA" size="2"/>
+        <symbol name="POCON20" address="ram:0xF0AA" size="2"/>
         <symbol name="SSCTB" address="ram:0xF0B0" size="2"/>
         <symbol name="SSCRB" address="ram:0xF0B2" size="2"/>
         <symbol name="SSCBR" address="ram:0xF0B4" size="2"/>
-		<symbol name="T14REL" address="ram:0xF0D0" size="2"/>
-		<symbol name="T14" address="ram:0xF0D2" size="2"/>
-		<symbol name="RTCL" address="ram:0xF0D4" size="2"/>
-		<symbol name="RTCH" address="ram:0xF0D6" size="2"/>
+        <symbol name="T14REL" address="ram:0xF0D0" size="2"/>
+        <symbol name="T14" address="ram:0xF0D2" size="2"/>
+        <symbol name="RTCL" address="ram:0xF0D4" size="2"/>
+        <symbol name="RTCH" address="ram:0xF0D6" size="2"/>
         <symbol name="DP0L" address="ram:0xF100" size="2"/>
         <symbol name="DP0H" address="ram:0xF102" size="2"/>
         <symbol name="DP1L" address="ram:0xF104" size="2"/>
@@ -234,14 +234,14 @@
         <symbol name="ODP3" address="ram:0xF1C6" size="2"/>
         <symbol name="ODP4" address="ram:0xF1CA" size="2"/>
         <symbol name="ODP6" address="ram:0xF1CE" size="2"/>
-		<symbol name="SYSCON2" address="ram:0xF1D0" size="2"/>
+        <symbol name="SYSCON2" address="ram:0xF1D0" size="2"/>
         <symbol name="ODP7" address="ram:0xF1D2" size="2"/>
-		<symbol name="SYSCON3" address="ram:0xF1D4" size="2"/>
+        <symbol name="SYSCON3" address="ram:0xF1D4" size="2"/>
         <symbol name="ODP8" address="ram:0xF1D6" size="2"/>
         <symbol name="EXISEL" address="ram:0xF1DA" size="2"/>
-		<symbol name="SYSCON1" address="ram:0xF1DC" size="2"/>
-		<symbol name="ISNC" address="ram:0xF1DE" size="2"/>
-		<symbol name="RSTCON" address="ram:0xF1E0" size="2"/>
+        <symbol name="SYSCON1" address="ram:0xF1DC" size="2"/>
+        <symbol name="ISNC" address="ram:0xF1DE" size="2"/>
+        <symbol name="RSTCON" address="ram:0xF1E0" size="2"/>
         <!-- SFR Region -->
         <symbol name="DPP0" address="ram:0xFE00" size="2"/>
         <symbol name="DPP1" address="ram:0xFE02" size="2"/>
