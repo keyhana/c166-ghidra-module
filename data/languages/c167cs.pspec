@@ -402,8 +402,9 @@
         <symbol name="DP8" address="ram:0xFFD6" size="2"/>
 	</default_symbols>
 	<default_memory_blocks>
-      <memory_block name="XRAM" start_address="ram:0xE000" mode="rwv" length="0x800" initialized="false"/>
-      <memory_block name="CAN" start_address="ram:0xEE00" mode="rwv" length="0x200" initialized="false"/>
+      <memory_block name="XRAM" start_address="ram:0xC000" mode="rwv" length="0x2800" initialized="false"/>
+      <memory_block name="CAN2" start_address="ram:0xEE00" mode="rwv" length="0x100" initialized="false"/>
+      <memory_block name="CAN1" start_address="ram:0xEF00" mode="rwv" length="0x100" initialized="false"/>
       <memory_block name="ESFR" start_address="ram:0xF000" mode="rwv" length="0x200" initialized="false"/>
       <memory_block name="IRAM" start_address="ram:0xF600" mode="rwv" length="0xA00" initialized="false"/>
     </default_memory_blocks>

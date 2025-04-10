@@ -3,25 +3,25 @@
 <!-- See Relax specification: Ghidra/Framework/SoftwareModeling/data/languages/language_definitions.rxg -->
 
 <language_definitions>
-   <language processor="Infineon C166"
+   <language processor="Infineon C167CR"
             endian="little"
             size="16"
-            variant="C167"
+            variant="C167CR"
             version="1.0"
             slafile="c166.sla"
-            processorspec="c166.pspec"
+            processorspec="c166cr.pspec"
             manualindexfile="../manuals/C166.idx"
             id="C166:LE:16:default">
-    <description>Infineon C166</description>
+    <description>Infineon C166/C167CS</description>
     <compiler name="tasking" spec="c166.cspec" id="tasking"/>
   </language> 
-  <language processor="Infineon C166"
+  <language processor="Infineon C167CS"
             endian="little"
             size="16"
             variant="C167CS"
             version="1.0"
             slafile="c166.sla"
-            processorspec="c167.pspec"
+            processorspec="c167cs.pspec"
             manualindexfile="../manuals/C166.idx"
             id="C166:LE:16:default">
     <description>Infineon C167CS Dual CAN</description>
