@@ -17,10 +17,10 @@ define register offset=0 size=1
 
 define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 ];
 define ram offset=0xFE0C size=2 [ MDH MDL ];
-define ram offset=0xFF10 size=2 [ MDC ];
+define ram offset=0xFF0E size=2 [ MDC ];
 
 define register offset=0xFE08 size=2 [ CSP ];
-define register offset=0xFF12 size=2 [ PSW ];
+define register offset=0xFF10 size=2 [ PSW ];
 
 define register offset=0x50 size=4 contextreg;
 define context contextreg
