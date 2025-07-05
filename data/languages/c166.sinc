@@ -247,14 +247,14 @@ RwnIndWP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+2; export *:2t
 RwmIndW: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
 RwmIndWP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+2; export *:2tmp; }
 RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm) + GetPagedOffset(DataImmW); export *[ram]:2 off; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:2 off; }
 
 RwnIndB: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:1tmp; }
 RwnIndBP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+1; export *:1tmp; }
 RwmIndB: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
 RwmIndBP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+1; export *:1tmp; }
 RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm) + GetPagedOffset(DataImmW); export *[ram]:1 off; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:1 off; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 
