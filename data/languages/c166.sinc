@@ -17,10 +17,10 @@ define register offset=0 size=1
 
 define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 ];
 define ram offset=0xFE0C size=2 [ MDH MDL ];
-define ram offset=0xFF10 size=2 [ MDC ];
+define ram offset=0xFF0E size=2 [ MDC ];
 
 define register offset=0xFE08 size=2 [ CSP ];
-define register offset=0xFF12 size=2 [ PSW ];
+define register offset=0xFF10 size=2 [ PSW ];
 
 define register offset=0x50 size=4 contextreg;
 define context contextreg
@@ -247,14 +247,14 @@ RwnIndWP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+2; export *:2t
 RwmIndW: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
 RwmIndWP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+2; export *:2tmp; }
 RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm) + GetPagedOffset(DataImmW); export *[ram]:2 off; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:2 off; }
 
 RwnIndB: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:1tmp; }
 RwnIndBP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+1; export *:1tmp; }
 RwmIndB: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
 RwmIndBP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+1; export *:1tmp; }
 RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm) + GetPagedOffset(DataImmW); export *[ram]:1 off; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:1 off; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 
