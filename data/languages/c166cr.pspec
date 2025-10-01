@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- See Relax specification: Ghidra/Framework/SoftwareModeling/data/languages/processor_spec.rxg -->
+
+<processor_spec>
+
+    <properties>
+        <property key="addressesDoNotAppearDirectlyInCode" value="true"/>
+        <property key="pcodeInjectLibraryClass" value="ghidrainfineon.PcodeInject"/>
+    </properties>
+
+    <programcounter register="IP"/>
+    <data_space space="ram"/>
+
+    <register_data>
+        <register name="contextreg" hidden="true"/>
+        <register name="Counter" hidden="true"/>
+        <register name="ExtrEn" hidden="true"/>
+        <register name="ExtpEn" hidden="true"/>
+        <register name="ExtsEn" hidden="true"/>
+        <register name="Extp" hidden="true"/>
+        <register name="Exts" hidden="true"/>
+    </register_data>
+
+    <default_symbols>
+        <symbol name="RESET_VECTOR" address="ram:0000" entry="true" type="code"/>
+        <!-- CAN1 Region -->
+        <symbol name="C1CSR" address="ram:0xEF00" size="2"/>
+        <symbol name="C1IR" address="ram:0xEF02" size="2"/>
+        <symbol name="C1BTR" address="ram:0xEF04" size="2"/>
+        <symbol name="C1GMS" address="ram:0xEF06" size="2"/>
+        <symbol name="C1UGML" address="ram:0xEF08" size="2"/>
+        <symbol name="C1LGML" address="ram:0xEF0A" size="2"/>
+        <symbol name="C1UMLM" address="ram:0xEF0C" size="2"/>
+        <symbol name="C1LMLM" address="ram:0xEF0E" size="2"/>
+        <symbol name="C1MCR1" address="ram:0xEF10" size="2"/>
+        <symbol name="C1AR1" address="ram:0xEF12" size="2"/>
+        <symbol name="C1LAR1" address="ram:0xEF14" size="2"/>
+        <symbol name="C1MCFG1" address="ram:0xEF16" size="2"/>
+        <symbol name="C1MCR2" address="ram:0xEF20" size="2"/>
+        <symbol name="C1AR2" address="ram:0xEF22" size="2"/>
+        <symbol name="C1LAR2" address="ram:0xEF24" size="2"/>
+        <symbol name="C1MCFG2" address="ram:0xEF26" size="2"/>
+        <symbol name="C1MCR3" address="ram:0xEF30" size="2"/>
+        <symbol name="C1AR3" address="ram:0xEF32" size="2"/>
+        <symbol name="C1LAR3" address="ram:0xEF34" size="2"/>
+        <symbol name="C1MCFG3" address="ram:0xEF36" size="2"/>
+        <symbol name="C1MCR4" address="ram:0xEF40" size="2"/>
+        <symbol name="C1AR4" address="ram:0xEF42" size="2"/>
+        <symbol name="C1LAR4" address="ram:0xEF44" size="2"/>
+        <symbol name="C1MCFG4" address="ram:0xEF46" size="2"/>
+        <symbol name="C1MCR5" address="ram:0xEF50" size="2"/>
+        <symbol name="C1AR5" address="ram:0xEF52" size="2"/>
+        <symbol name="C1LAR5" address="ram:0xEF54" size="2"/>
+        <symbol name="C1MCFG5" address="ram:0xEF56" size="2"/>
+        <symbol name="C1MCR6" address="ram:0xEF60" size="2"/>
+        <symbol name="C1AR6" address="ram:0xEF62" size="2"/>
+        <symbol name="C1LAR6" address="ram:0xEF64" size="2"/>
+        <symbol name="C1MCFG6" address="ram:0xEF66" size="2"/>
+        <symbol name="C1MCR7" address="ram:0xEF70" size="2"/>
+        <symbol name="C1AR7" address="ram:0xEF72" size="2"/>
+        <symbol name="C1LAR7" address="ram:0xEF74" size="2"/>
+        <symbol name="C1MCFG7" address="ram:0xEF76" size="2"/>
+        <symbol name="C1MCR8" address="ram:0xEF80" size="2"/>
+        <symbol name="C1AR8" address="ram:0xEF82" size="2"/>
+        <symbol name="C1LAR8" address="ram:0xEF84" size="2"/>
+        <symbol name="C1MCFG8" address="ram:0xEF86" size="2"/>
+        <symbol name="C1MCR9" address="ram:0xEF90" size="2"/>
+        <symbol name="C1AR9" address="ram:0xEF92" size="2"/>
+        <symbol name="C1LAR9" address="ram:0xEF94" size="2"/>
+        <symbol name="C1MCFG9" address="ram:0xEF96" size="2"/>
+        <symbol name="C1MCR10" address="ram:0xEFA0" size="2"/>
+        <symbol name="C1AR10" address="ram:0xEFA2" size="2"/>
+        <symbol name="C1LAR10" address="ram:0xEFA4" size="2"/>
+        <symbol name="C1MCFG10" address="ram:0xEFA6" size="2"/>
+        <symbol name="C1MCR11" address="ram:0xEFB0" size="2"/>
+        <symbol name="C1AR11" address="ram:0xEFB2" size="2"/>
+        <symbol name="C1LAR11" address="ram:0xEFB4" size="2"/>
+        <symbol name="C1MCFG11" address="ram:0xEFB6" size="2"/>
+        <symbol name="C1MCR12" address="ram:0xEFC0" size="2"/>
+        <symbol name="C1AR12" address="ram:0xEFC2" size="2"/>
+        <symbol name="C1LAR12" address="ram:0xEFC4" size="2"/>
+        <symbol name="C1MCFG12" address="ram:0xEFC6" size="2"/>
+        <symbol name="C1MCR13" address="ram:0xEFD0" size="2"/>
+        <symbol name="C1AR13" address="ram:0xEFD2" size="2"/>
+        <symbol name="C1LAR13" address="ram:0xEFD4" size="2"/>
+        <symbol name="C1MCFG13" address="ram:0xEFD6" size="2"/>
+        <symbol name="C1MCR14" address="ram:0xEFE0" size="2"/>
+        <symbol name="C1AR14" address="ram:0xEFE2" size="2"/>
+        <symbol name="C1LAR14" address="ram:0xEFE4" size="2"/>
+        <symbol name="C1MCFG14" address="ram:0xEFE6" size="2"/>
+        <symbol name="C1MCR15" address="ram:0xEFF0" size="2"/>
+        <symbol name="C1AR15" address="ram:0xEFF2" size="2"/>
+        <symbol name="C1LAR15" address="ram:0xEFF4" size="2"/>
+        <symbol name="C1MCFG15" address="ram:0xEFF6" size="2"/>
+        <!-- ESFR Region -->
+        <symbol name="PT0" address="ram:0xF030" size="2"/>
+        <symbol name="PT1" address="ram:0xF032" size="2"/>
+        <symbol name="PT2" address="ram:0xF034" size="2"/>
+        <symbol name="PT3" address="ram:0xF036" size="2"/>
+        <symbol name="PP0" address="ram:0xF038" size="2"/>
+        <symbol name="PP1" address="ram:0xF03A" size="2"/>
+        <symbol name="PP2" address="ram:0xF03C" size="2"/>
+        <symbol name="PP3" address="ram:0xF03E" size="2"/>
+        <symbol name="T7" address="ram:0xF050" size="2"/>
+        <symbol name="T8" address="ram:0xF052" size="2"/>
+        <symbol name="T7REL" address="ram:0xF054" size="2"/>
+        <symbol name="T8REL" address="ram:0xF056" size="2"/>
+        <symbol name="IDMEM2" address="ram:0xF076" size="2"/>
+        <symbol name="IDPROG" address="ram:0xF078" size="2"/>
+        <symbol name="IDMEM" address="ram:0xF07A" size="2"/>
+        <symbol name="IDCHIP" address="ram:0xF07C" size="2"/>
+        <symbol name="IDMANUF" address="ram:0xF07E" size="2"/>
+        <symbol name="ADDAT2" address="ram:0xF0A0" size="2"/>
+        <symbol name="PDCR" address="ram:0xF0AA" size="2"/>
+        <symbol name="PTCR" address="ram:0xF0AE" size="2"/>
+        <symbol name="SSCTB" address="ram:0xF0B0" size="2"/>
+        <symbol name="SSCRB" address="ram:0xF0B2" size="2"/>
+        <symbol name="SSCBR" address="ram:0xF0B4" size="2"/>
+        <symbol name="DP0L" address="ram:0xF100" size="2"/>
+        <symbol name="DP0H" address="ram:0xF102" size="2"/>
+        <symbol name="DP1L" address="ram:0xF104" size="2"/>
+        <symbol name="DP1H" address="ram:0xF106" size="2"/>
+        <symbol name="RP0H" address="ram:0xF108" size="2"/>
+        <symbol name="CC16IC" address="ram:0xF160" size="2"/>
+        <symbol name="CC17IC" address="ram:0xF162" size="2"/>
+        <symbol name="CC18IC" address="ram:0xF164" size="2"/>
+        <symbol name="CC19IC" address="ram:0xF166" size="2"/>
+        <symbol name="CC20IC" address="ram:0xF168" size="2"/>
+        <symbol name="CC21IC" address="ram:0xF16A" size="2"/>
+        <symbol name="CC22IC" address="ram:0xF16C" size="2"/>
+        <symbol name="CC23IC" address="ram:0xF16E" size="2"/>
+        <symbol name="CC24IC" address="ram:0xF170" size="2"/>
+        <symbol name="CC25IC" address="ram:0xF172" size="2"/>
+        <symbol name="CC26IC" address="ram:0xF174" size="2"/>
+        <symbol name="CC27IC" address="ram:0xF176" size="2"/>
+        <symbol name="CC28IC" address="ram:0xF178" size="2"/>
+        <symbol name="T7IC" address="ram:0xF17A" size="2"/>
+        <symbol name="T8IC" address="ram:0xF17C" size="2"/>
+        <symbol name="PWMIC" address="ram:0xF17E" size="2"/>
+        <symbol name="CC29IC" address="ram:0xF184" size="2"/>
+        <symbol name="XP0IC" address="ram:0xF186" size="2"/>
+        <symbol name="CC30IC" address="ram:0xF18C" size="2"/>
+        <symbol name="XP1IC" address="ram:0xF18E" size="2"/>
+        <symbol name="CC31IC" address="ram:0xF194" size="2"/>
+        <symbol name="XP2IC" address="ram:0xF196" size="2"/>
+        <symbol name="S0TBIC" address="ram:0xF19C" size="2"/>
+        <symbol name="XP3IC" address="ram:0xF19E" size="2"/>
+        <symbol name="EXICON" address="ram:0xF1C0" size="2"/>
+        <symbol name="ODP2" address="ram:0xF1C2" size="2"/>
+        <symbol name="PICON" address="ram:0xF1C4" size="2"/>
+        <symbol name="ODP3" address="ram:0xF1C6" size="2"/>
+        <symbol name="ODP4" address="ram:0xF1CA" size="2"/>
+        <symbol name="ODP6" address="ram:0xF1CE" size="2"/>
+        <symbol name="ODP7" address="ram:0xF1D2" size="2"/>
+        <symbol name="ODP8" address="ram:0xF1D6" size="2"/>
+        <symbol name="EXISEL" address="ram:0xF1DA" size="2"/>
+        <symbol name="SRCP0" address="ram:0xFCE0" size="2"/>
+        <symbol name="DSTP0" address="ram:0xFCE2" size="2"/>
+        <symbol name="SRCP1" address="ram:0xFCE4" size="2"/>
+        <symbol name="DSTP1" address="ram:0xFCE6" size="2"/>
+        <symbol name="SRCP2" address="ram:0xFCE8" size="2"/>
+        <symbol name="DSTP2" address="ram:0xFCEA" size="2"/>
+        <symbol name="SRCP3" address="ram:0xFCEC" size="2"/>
+        <symbol name="DSTP3" address="ram:0xFCEE" size="2"/>
+        <symbol name="SRCP4" address="ram:0xFCF0" size="2"/>
+        <symbol name="DSTP4" address="ram:0xFCF2" size="2"/>
+        <symbol name="SRCP5" address="ram:0xFCF4" size="2"/>
+        <symbol name="DSTP5" address="ram:0xFCF6" size="2"/>
+        <symbol name="SRCP6" address="ram:0xFCF8" size="2"/>
+        <symbol name="DSTP6" address="ram:0xFCFA" size="2"/>
+        <symbol name="SRCP7" address="ram:0xFCFC" size="2"/>
+        <symbol name="DSTP7" address="ram:0xFCFE" size="2"/>
+        <!-- SFR Region -->
+        <symbol name="DPP0" address="ram:0xFE00" size="2"/>
+        <symbol name="DPP1" address="ram:0xFE02" size="2"/>
+        <symbol name="DPP2" address="ram:0xFE04" size="2"/>
+        <symbol name="DPP3" address="ram:0xFE06" size="2"/>
+        <symbol name="CSP" address="ram:0xFE08" size="2"/>
+        <symbol name="MDH" address="ram:0xFE0C" size="2"/>
+        <symbol name="MDL" address="ram:0xFE0E" size="2"/>
+        <symbol name="CP" address="ram:0xFE10" size="2"/>
+        <symbol name="SP" address="ram:0xFE12" size="2"/>
+        <symbol name="STKOV" address="ram:0xFE14" size="2"/>
+        <symbol name="STKUN" address="ram:0xFE16" size="2"/>
+        <symbol name="ADDRSEL1" address="ram:0xFE18" size="2"/>
+        <symbol name="ADDRSEL2" address="ram:0xFE1A" size="2"/>
+        <symbol name="ADDRSEL3" address="ram:0xFE1C" size="2"/>
+        <symbol name="ADDRSEL4" address="ram:0xFE1E" size="2"/>
+        <symbol name="PW0" address="ram:0xFE30" size="2"/>
+        <symbol name="PW1" address="ram:0xFE32" size="2"/>
+        <symbol name="PW2" address="ram:0xFE34" size="2"/>
+        <symbol name="PW3" address="ram:0xFE36" size="2"/>
+        <symbol name="T2" address="ram:0xFE40" size="2"/>
+        <symbol name="T3" address="ram:0xFE42" size="2"/>
+        <symbol name="T4" address="ram:0xFE44" size="2"/>
+        <symbol name="T5" address="ram:0xFE46" size="2"/>
+        <symbol name="T6" address="ram:0xFE48" size="2"/>
+        <symbol name="CAPREL" address="ram:0xFE4A" size="2"/>
+        <symbol name="T0" address="ram:0xFE50" size="2"/>
+        <symbol name="T1" address="ram:0xFE52" size="2"/>
+        <symbol name="T0REL" address="ram:0xFE54" size="2"/>
+        <symbol name="T1REL" address="ram:0xFE56" size="2"/>
+        <symbol name="CC16" address="ram:0xFE60" size="2"/>
+        <symbol name="CC17" address="ram:0xFE62" size="2"/>
+        <symbol name="CC18" address="ram:0xFE64" size="2"/>
+        <symbol name="CC19" address="ram:0xFE66" size="2"/>
+        <symbol name="CC20" address="ram:0xFE68" size="2"/>
+        <symbol name="CC21" address="ram:0xFE6A" size="2"/>
+        <symbol name="CC22" address="ram:0xFE6C" size="2"/>
+        <symbol name="CC23" address="ram:0xFE6E" size="2"/>
+        <symbol name="CC24" address="ram:0xFE70" size="2"/>
+        <symbol name="CC25" address="ram:0xFE72" size="2"/>
+        <symbol name="CC26" address="ram:0xFE74" size="2"/>
+        <symbol name="CC27" address="ram:0xFE76" size="2"/>
+        <symbol name="CC28" address="ram:0xFE78" size="2"/>
+        <symbol name="CC29" address="ram:0xFE7A" size="2"/>
+        <symbol name="CC30" address="ram:0xFE7C" size="2"/>
+        <symbol name="CC31" address="ram:0xFE7E" size="2"/>
+        <symbol name="CC0" address="ram:0xFE80" size="2"/>
+        <symbol name="CC1" address="ram:0xFE82" size="2"/>
+        <symbol name="CC2" address="ram:0xFE84" size="2"/>
+        <symbol name="CC3" address="ram:0xFE86" size="2"/>
+        <symbol name="CC4" address="ram:0xFE88" size="2"/>
+        <symbol name="CC5" address="ram:0xFE8A" size="2"/>
+        <symbol name="CC6" address="ram:0xFE8C" size="2"/>
+        <symbol name="CC7" address="ram:0xFE8E" size="2"/>
+        <symbol name="CC8" address="ram:0xFE90" size="2"/>
+        <symbol name="CC9" address="ram:0xFE92" size="2"/>
+        <symbol name="CC10" address="ram:0xFE94" size="2"/>
+        <symbol name="CC11" address="ram:0xFE96" size="2"/>
+        <symbol name="CC12" address="ram:0xFE98" size="2"/>
+        <symbol name="CC13" address="ram:0xFE9A" size="2"/>
+        <symbol name="CC14" address="ram:0xFE9C" size="2"/>
+        <symbol name="CC15" address="ram:0xFE9E" size="2"/>
+        <symbol name="ADDAT" address="ram:0xFEA0" size="2"/>
+        <symbol name="P1DIDIS" address="ram:0xFEA4" size="2"/>
+        <symbol name="WDT" address="ram:0xFEAE" size="2"/>
+        <symbol name="S0TBUF" address="ram:0xFEB0" size="2"/>
+        <symbol name="S0RBUF" address="ram:0xFEB2" size="2"/>
+        <symbol name="S0BG" address="ram:0xFEB4" size="2"/>
+        <symbol name="PECC0" address="ram:0xFEC0" size="2"/>
+        <symbol name="PECC1" address="ram:0xFEC2" size="2"/>
+        <symbol name="PECC2" address="ram:0xFEC4" size="2"/>
+        <symbol name="PECC3" address="ram:0xFEC6" size="2"/>
+        <symbol name="PECC4" address="ram:0xFEC8" size="2"/>
+        <symbol name="PECC5" address="ram:0xFECA" size="2"/>
+        <symbol name="PECC6" address="ram:0xFECC" size="2"/>
+        <symbol name="PECC7" address="ram:0xFECE" size="2"/>
+        <symbol name="P0L" address="ram:0xFF00" size="2"/>
+        <symbol name="P0H" address="ram:0xFF02" size="2"/>
+        <symbol name="P1L" address="ram:0xFF04" size="2"/>
+        <symbol name="P1H" address="ram:0xFF06" size="2"/>
+        <symbol name="BUSCON0" address="ram:0xFF0C" size="2"/>
+        <symbol name="MDC" address="ram:0xFF0E" size="2"/>
+        <symbol name="PSW" address="ram:0xFF10" size="2"/>
+        <symbol name="SYSCON" address="ram:0xFF12" size="2"/>
+        <symbol name="BUSCON1" address="ram:0xFF14" size="2"/>
+        <symbol name="BUSCON2" address="ram:0xFF16" size="2"/>
+        <symbol name="BUSCON3" address="ram:0xFF18" size="2"/>
+        <symbol name="BUSCON4" address="ram:0xFF1A" size="2"/>
+        <symbol name="ZEROS" address="ram:0xFF1C" size="2"/>
+        <symbol name="ONES" address="ram:0xFF1E" size="2"/>
+        <symbol name="T78CON" address="ram:0xFF20" size="2"/>
+        <symbol name="CCM4" address="ram:0xFF22" size="2"/>
+        <symbol name="CCM5" address="ram:0xFF24" size="2"/>
+        <symbol name="CCM6" address="ram:0xFF26" size="2"/>
+        <symbol name="CCM7" address="ram:0xFF28" size="2"/>
+        <symbol name="PWMCON0" address="ram:0xFF30" size="2"/>
+        <symbol name="PWMCON1" address="ram:0xFF32" size="2"/>
+        <symbol name="T2CON" address="ram:0xFF40" size="2"/>
+        <symbol name="T3CON" address="ram:0xFF42" size="2"/>
+        <symbol name="T4CON" address="ram:0xFF44" size="2"/>
+        <symbol name="T5CON" address="ram:0xFF46" size="2"/>
+        <symbol name="T6CON" address="ram:0xFF48" size="2"/>
+        <symbol name="T01CON" address="ram:0xFF50" size="2"/>
+        <symbol name="CCM0" address="ram:0xFF52" size="2"/>
+        <symbol name="CCM1" address="ram:0xFF54" size="2"/>
+        <symbol name="CCM2" address="ram:0xFF56" size="2"/>
+        <symbol name="CCM3" address="ram:0xFF58" size="2"/>
+        <symbol name="T2IC" address="ram:0xFF60" size="2"/>
+        <symbol name="T3IC" address="ram:0xFF62" size="2"/>
+        <symbol name="T4IC" address="ram:0xFF64" size="2"/>
+        <symbol name="T5IC" address="ram:0xFF66" size="2"/>
+        <symbol name="T6IC" address="ram:0xFF68" size="2"/>
+        <symbol name="CRIC" address="ram:0xFF6A" size="2"/>
+        <symbol name="S0TIC" address="ram:0xFF6C" size="2"/>
+        <symbol name="S0RIC" address="ram:0xFF6E" size="2"/>
+        <symbol name="S0EIC" address="ram:0xFF70" size="2"/>
+        <symbol name="SSCTIC" address="ram:0xFF72" size="2"/>
+        <symbol name="SSCRIC" address="ram:0xFF74" size="2"/>
+        <symbol name="SSCEIC" address="ram:0xFF76" size="2"/>
+        <symbol name="CC0IC" address="ram:0xFF78" size="2"/>
+        <symbol name="CC1IC" address="ram:0xFF7A" size="2"/>
+        <symbol name="CC2IC" address="ram:0xFF7C" size="2"/>
+        <symbol name="CC3IC" address="ram:0xFF7E" size="2"/>
+        <symbol name="CC4IC" address="ram:0xFF80" size="2"/>
+        <symbol name="CC5IC" address="ram:0xFF82" size="2"/>
+        <symbol name="CC6IC" address="ram:0xFF84" size="2"/>
+        <symbol name="CC7IC" address="ram:0xFF86" size="2"/>
+        <symbol name="CC8IC" address="ram:0xFF88" size="2"/>
+        <symbol name="CC9IC" address="ram:0xFF8A" size="2"/>
+        <symbol name="CC10IC" address="ram:0xFF8C" size="2"/>
+        <symbol name="CC11IC" address="ram:0xFF8E" size="2"/>
+        <symbol name="CC12IC" address="ram:0xFF90" size="2"/>
+        <symbol name="CC13IC" address="ram:0xFF92" size="2"/>
+        <symbol name="CC14IC" address="ram:0xFF94" size="2"/>
+        <symbol name="CC15IC" address="ram:0xFF96" size="2"/>
+        <symbol name="ADCIC" address="ram:0xFF98" size="2"/>
+        <symbol name="ADEIC" address="ram:0xFF9A" size="2"/>
+        <symbol name="T0IC" address="ram:0xFF9C" size="2"/>
+        <symbol name="T1IC" address="ram:0xFF9E" size="2"/>
+        <symbol name="ADCON" address="ram:0xFFA0" size="2"/>
+        <symbol name="P5" address="ram:0xFFA2" size="2"/>
+        <symbol name="P5DIDIS" address="ram:0xFFA4" size="2"/>
+        <symbol name="TFR" address="ram:0xFFAC" size="2"/>
+        <symbol name="WDTCON" address="ram:0xFFAE" size="2"/>
+        <symbol name="S0CON" address="ram:0xFFB0" size="2"/>
+        <symbol name="SSCCON" address="ram:0xFFB2" size="2"/>
+        <symbol name="P2" address="ram:0xFFC0" size="2"/>
+        <symbol name="DP2" address="ram:0xFFC2" size="2"/>
+        <symbol name="P3" address="ram:0xFFC4" size="2"/>
+        <symbol name="DP3" address="ram:0xFFC6" size="2"/>
+        <symbol name="P4" address="ram:0xFFC8" size="2"/>
+        <symbol name="DP4" address="ram:0xFFCA" size="2"/>
+        <symbol name="P6" address="ram:0xFFCC" size="2"/>
+        <symbol name="DP6" address="ram:0xFFCE" size="2"/>
+        <symbol name="P7" address="ram:0xFFD0" size="2"/>
+        <symbol name="DP7" address="ram:0xFFD2" size="2"/>
+        <symbol name="P8" address="ram:0xFFD4" size="2"/>
+        <symbol name="DP8" address="ram:0xFFD6" size="2"/>
+    </default_symbols>
+    <default_memory_blocks>
+        <memory_block name="XRAM" start_address="ram:0xE000" mode="rwv" length="0x800" initialized="false"/>
+        <memory_block name="CAN" start_address="ram:0xEF00" mode="rwv" length="0x100" initialized="false"/>
+        <memory_block name="ESFR" start_address="ram:0xF000" mode="rwv" length="0x200" initialized="false"/>
+        <memory_block name="SFR" start_address="ram:0xFE00" mode="rwv" length="0x200" initialized="false"/>
+        <memory_block name="IRAM" start_address="ram:0xF600" mode="rwv" length="0x800" initialized="false"/>
+    </default_memory_blocks>
+</processor_spec>
