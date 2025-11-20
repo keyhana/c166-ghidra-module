@@ -70,7 +70,7 @@ macro setPreFlagsAnd(b) {
 
 macro setPreFlagsSub(a, b) {
 	$(PSW_C) = a < b;
-	$(PSW_V) = ((a s< b) != ((a s< 0) != (a s< 0)));
+	$(PSW_V) = ((a s< 0) != (b s< 0)) & (((a - b) s< 0) != (a s< 0));
 	$(PSW_E) = (b == 0x8000);
 }
 
