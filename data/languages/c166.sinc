@@ -1718,7 +1718,7 @@ define pcodeop __service_watchdog;
 	$(PSW_N) = 0;
 	$(PSW_C) = 0;
 	$(PSW_V) = 0;
-	$(PSW_Z) = (rwn == 0x0);
+	$(PSW_Z) = (rwm == 0x0);
 	$(PSW_E) = 0;
 }
 
