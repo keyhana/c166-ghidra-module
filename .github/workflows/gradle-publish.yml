@@ -6,8 +6,8 @@ on:
       - 'v*'
 
 env:
-  GHIDRA_VERSION: "11.3.1"
-  GHIDRA_BUILD_DATE: "20250219"
+  GHIDRA_VERSION: "11.4.2"
+  GHIDRA_BUILD_DATE: "20250826"
 
 jobs:
   build:
