@@ -113,7 +113,7 @@ macro setBitClearFlags(a) {
 
 macro setDivFlags(a) {
 	$(PSW_C) = 0;
-	$(PSW_V) = !(a == 0x0);
+	$(PSW_V) = (a == 0x0);
 	$(PSW_E) = 0;
 }
 
@@ -1638,7 +1638,9 @@ define pcodeop __service_watchdog;
 	MDL = res:2;
 	MDH = rem:2;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0) | (res != sext(res:2));
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1652,7 +1654,9 @@ define pcodeop __service_watchdog;
 	MDL = res:2;
 	MDH = rem:2;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0) | (res > 0xFFFF);
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1675,7 +1679,9 @@ define pcodeop __service_watchdog;
 	MDL = res[0,16];
 	MDH = res[16,16];
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (res != sext(res:2));
+	$(PSW_E) = 0;
 	setPostFlags(res);
 }
 
@@ -1687,7 +1693,9 @@ define pcodeop __service_watchdog;
 	MDL = res[0,16];
 	MDH = res[16,16];
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (res > 0xFFFF);
+	$(PSW_E) = 0;
 	setPostFlags(res);
 }
 
