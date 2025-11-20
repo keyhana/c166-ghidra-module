@@ -1696,6 +1696,7 @@ define pcodeop __service_watchdog;
 # POP Rwn
 :pop ShortMemAddrW is ExtCountDec & op=0xFC & ShortMemAddrW {
 	Pop(ShortMemAddrW);
+	$(PSW_E) = (ShortMemAddrW == 0x8000);
 	setPostFlags(ShortMemAddrW);
 }
 
