@@ -6,7 +6,6 @@ define space ram type=ram_space size=3 default;
 define space register type=register_space size=2;
 
 define pcodeop GetPagedOffset;
-define pcodeop CopyVarnode;
 define pcodeop push;
 define pcodeop pop;
 
@@ -188,11 +187,11 @@ attach variables [ rwi ] [ r0 r1 r2 r3 ];
 DataImmW: "#"^data16  is data16 { export *[const]:2 data16; }
 DataImmB: "#"^data16  is data16 { export *[const]:1 data16; }
 
-IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:2tmp; }
-IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 2; export *:2tmp; }
+IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { export *:2rwi; }
+IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:2 = rwi; rwi = rwi + 2; export *:2tmp; }
 IndexImmW: "#"^data3 is idx_imm=0 & data3 { export *[const]:2 data3; }
-IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:1tmp; }
-IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 1; export *:1tmp; }
+IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { export *:1rwi; }
+IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:2 = rwi; rwi = rwi + 1; export *:1tmp; }
 IndexImmB: "#"^data3 is idx_imm=0 & data3 { export *[const]:1 data3; }
 
 
@@ -242,19 +241,19 @@ LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + me
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; local reference:2 = *:2(memoff:3); export tmp; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff;   local reference:2 = *:2(memoff:3); export tmp; }
 
-RwnIndW: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:2tmp; }
-RwnIndWP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+2; export *:2tmp; }
-RwmIndW: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
-RwmIndWP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+2; export *:2tmp; }
-RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:2 off; }
+RwnIndW: [rwn] is rwn { export *:2rwn; }
+RwnIndWP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+2; export *:2tmp; }
+RwmIndW: [rwm] is rwm { export *:2rwm; }
+RwmIndWP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+2; export *:2tmp; }
+RwmIndWM: [-rwm] is rwm { rwm=rwm-2; export *:2rwm; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:2 = rwm+DataImmW; export *[ram]:2 off; }
 
-RwnIndB: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:1tmp; }
-RwnIndBP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+1; export *:1tmp; }
-RwmIndB: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
-RwmIndBP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+1; export *:1tmp; }
-RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:1 off; }
+RwnIndB: [rwn] is rwn { export *:1rwn; }
+RwnIndBP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+1; export *:1tmp; }
+RwmIndB: [rwm] is rwm { export *:1rwm; }
+RwmIndBP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+1; export *:1tmp; }
+RwmIndBM: [-rwm] is rwm { rwm=rwm-1; export *:1rwm; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:2 = rwm+DataImmW; export *[ram]:1 off; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 

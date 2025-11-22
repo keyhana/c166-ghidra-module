@@ -48,13 +48,6 @@
         </pcode>
     </callotherfixup>
 
-    <callotherfixup targetop="CopyVarnode">
-        <pcode dynamic="true">
-            <input name="in"/>
-            <output name="out"/>
-        </pcode>
-    </callotherfixup>
-
     <global>
         <range space="ram"/>
     </global>
