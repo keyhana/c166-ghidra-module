@@ -1410,8 +1410,8 @@ define pcodeop __disable_watchdog;
 
 define pcodeop __end_of_init;
 
-# EINT
-:eint is ExtCountDec & op_32=0xB5B54AB5 {
+# EINIT
+:einit is ExtCountDec & op_32=0xB5B54AB5 {
 	__end_of_init();
 }
 
