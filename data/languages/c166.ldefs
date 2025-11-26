@@ -11,7 +11,7 @@
             slafile="c166.sla"
             processorspec="c166cr.pspec"
             manualindexfile="../manuals/C166.idx"
-            id="C166:CR:LE:16:default">
+            id="C166:LE:16:default">
     <description>Infineon C166/C167CS</description>
     <compiler name="tasking" spec="c166.cspec" id="tasking"/>
   </language> 
