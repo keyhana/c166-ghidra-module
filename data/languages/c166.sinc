@@ -246,14 +246,14 @@ RwnIndWP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+2; export *:2tmp; }
 RwmIndW: [rwm] is rwm { export *:2rwm; }
 RwmIndWP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+2; export *:2tmp; }
 RwmIndWM: [-rwm] is rwm { rwm=rwm-2; export *:2rwm; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:2 = rwm+DataImmW; export *[ram]:2 off; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:2 = rwm + GetPagedOffset(DataImmW); export *[ram]:2 off; }
 
 RwnIndB: [rwn] is rwn { export *:1rwn; }
 RwnIndBP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+1; export *:1tmp; }
 RwmIndB: [rwm] is rwm { export *:1rwm; }
 RwmIndBP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+1; export *:1tmp; }
 RwmIndBM: [-rwm] is rwm { rwm=rwm-1; export *:1rwm; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:2 = rwm+DataImmW; export *[ram]:1 off; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:2 = rwm + GetPagedOffset(DataImmW); export *[ram]:1 off; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 

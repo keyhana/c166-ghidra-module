@@ -28,29 +28,25 @@ public class GetPagedOffset extends InjectPayloadCallother {
 		if (ExtpEnRegister != null && ExtpEnRegister.equals(BigInteger.ONE)) {
 			BigInteger bigInteger = program.getProgramContext().getValue(program.getRegister("Extp"), baseAddress, false);
 			if (bigInteger != null) {
-				value = bigInteger.longValue();
+				value = bigInteger.longValue() << 14;
+                offset = offset & 0x3FFF;
 			}
 		} else if (ExtsEnRegister != null && ExtsEnRegister.equals(BigInteger.ONE)) {
 			BigInteger bigInteger = program.getProgramContext().getValue(program.getRegister("Exts"), baseAddress, false);
 			if (bigInteger != null) {
-				value = bigInteger.longValue();
+				value = bigInteger.longValue() << 16;
 			}
 		} else if (PageRegister != null) {
-			value = PageRegister.longValue();
+			value = PageRegister.longValue() << 14;
+            offset = offset & 0x3FFF;
 		}
 
-		return (value << 14) + (offset & 0x3FFF);
+		return value + offset;
 	}
 	
 	@Override
 	public PcodeOp[] getPcode(Program program, InjectContext con) {
 		PcodeOpEmitter emitter = new PcodeOpEmitter(this.language, con.baseAddr, this.uniqueBase);
-		boolean constantAvailable = con.inputlist.getFirst().isConstant();
-
-		if (!constantAvailable) {
-			emitter.emitCopyVarnode(con.output.getFirst(), con.inputlist.getFirst());
-			return emitter.getPcodeOps();
-		}
 
 		long effectiveAddress = this.getEffectiveAddress(program, con.baseAddr, con.inputlist.getFirst().getOffset());
 
