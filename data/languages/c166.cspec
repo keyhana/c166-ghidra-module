@@ -48,6 +48,13 @@
         </pcode>
     </callotherfixup>
 
+    <callotherfixup targetop="c166_switch_load">
+        <pcode dynamic="true">
+            <input name="ptr" size="2"/>
+            <output name="val" size="2"/>
+        </pcode>
+    </callotherfixup>
+
     <global>
         <range space="ram"/>
     </global>

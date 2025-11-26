@@ -13,8 +13,8 @@ public class PcodeInject extends PcodeInjectLibrary {
 		super(l);
 		implementedOps = new HashMap<>();
 		implementedOps.put("GetPagedOffset", new GetPagedOffset("getPagedOffset", l, this.getUniqueBase()));
-		uniqueBase += 32;
-		implementedOps.put("CopyVarnode", new CopyVarnode("copyVarnode", l, this.getUniqueBase()));
+		uniqueBase += 0x100;
+		implementedOps.put("c166_switch_load", new SwitchLoad("c166_switch_load", l, this.getUniqueBase()));
 	}
 	
 	@Override

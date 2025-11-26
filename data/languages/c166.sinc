@@ -8,6 +8,8 @@ define space register type=register_space size=2;
 define pcodeop GetPagedOffset;
 define pcodeop push;
 define pcodeop pop;
+define pcodeop segment;
+define pcodeop c166_switch_load;  # Special load for switch tables - injector emits segment() when followed by jmpi
 
 define register offset=0 size=2
 	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 IP ];
@@ -1144,6 +1146,13 @@ macro Move(a, b) {
 # MOV reg, #data16
 :mov ShortMemAddrW, DataImmW is ExtCountDec & op=0xE6 & ShortMemAddrW; DataImmW {
 	Move(ShortMemAddrW, DataImmW);
+}
+
+# MOV Rwn, [Rwm] where Rwn==Rwm - Switch table load pattern (same register for dest and ptr)
+# Uses c166_switch_load pcodeop - injector checks if followed by jmpi and emits segment() if so
+:mov rwn, [rwm] is ExtCountDec & op=0xA8 & rwn & rwm & RWnRWmEqual {
+	local val:2 = c166_switch_load(rwn);
+	rwn = val;
 }
 
 # MOV Rwn, [Rwm]
