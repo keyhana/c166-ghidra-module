@@ -2,41 +2,102 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A **Ghidra** module that adds support for disassembling and decompiling the **C166 architecture**. While still under development, this module correctly handles basic disassembly and decompilation tasks.
+A **Ghidra** extension for disassembling and decompiling **Infineon C166/C167** microcontroller binaries. Features advanced support for C166's segmented memory model including DPP (Data Page Pointer) address translation and switch table analysis.
 
 ## Features
 
-- **Disassembly**: C166 binaries.
-- **Decompilation**: Basic C166 code decompilation.
-- **Ghidra Integration**: Easy integration with Ghidra.
+### Core Functionality
+- **Full Instruction Set** — All C166 instructions including extended, multiplication/division
+- **DPP Address Translation** — Automatic resolution of 16-bit addresses to 24-bit physical addresses
+- **EXTP/EXTS Support** — Extended page and segment override handling
+- **Switch Table Analysis** — Automatic switch detection
 
-## Supported Instructions and CPU Features
+### Included Scripts
 
-| **Category**                    | **Status** |
-|---------------------------------|------------|
-| **Basic Instructions**          | Supported  |
-| **Extended Instructions**       | Supported  |
-| **Division and Multiplication** | Supported  |
-| **User Stack Model**            | Supported  |
+| Script | Keybinding | Description |
+|--------|------------|-------------|
+| `CreateDPPReference.java` | `Ctrl+Shift+D` | Manually create DPP-resolved data references |
+| `C166SwitchOverride.java` | `Ctrl+Shift+S` | Force switch table recognition in decompiler |
 
+## C166 Memory Model
+
+C166 uses a segmented memory architecture:
+
+```
+16-bit pointer → 24-bit physical address
+
+Formula: physical = (DPP << 14) | (offset & 0x3FFF)
+
+DPP0: 0x0000-0x3FFF
+DPP1: 0x4000-0x7FFF
+DPP2: 0x8000-0xBFFF
+DPP3: 0xC000-0xFFFF
+```
+
+The module attempts to resolve these translations automatically, though manual intervention may be needed in some cases.
 
 ## Installation
 
-1. **Download the Extension**: Visit the [Releases page](https://github.com/keyhana/c166-ghidra-module/releases) and download the latest `.zip` file.
-2. **Install in Ghidra**:
-    - Open Ghidra.
-    - Go to `File` -> `Install Extensions...`.
-    - Click `+` and select the downloaded `.zip` file.
-    - Install the extension and restart Ghidra.
+1. **Download** the latest `.zip` from [Releases](https://github.com/keyhana/c166-ghidra-module/releases)
+2. **Install** in Ghidra: `File` → `Install Extensions...` → `+` → Select `.zip`
+3. **Restart** Ghidra
 
-## Project Status
+### Building from Source
 
-The module is in early development. Contributions and feedback are welcome to improve accuracy and expand functionality.
+```bash
+# Set Ghidra installation path
+export GHIDRA_INSTALL_DIR=/path/to/ghidra
+
+# Build extension
+./gradlew buildExtension
+
+# Output: dist/ghidra_*_GhidraInfineon.zip
+```
+
+## Usage Tips
+
+### Switch Tables Not Detected?
+1. Place cursor on `jmpi` instruction
+2. Press `Ctrl+Shift+S` to run switch override script
+3. Script finds table offset and max case automatically
+
+### Wrong Data References?
+1. Place cursor on instruction with memory operand
+2. Press `Ctrl+Shift+D` to create DPP-resolved reference
+3. Script prompts for DPP value if unknown
+
+### Setting DPP Values
+For best results, set DPP register values in Ghidra:
+1. Select address range
+2. `Right-click` → `Set Register Values`
+3. Set `DPP0`-`DPP3` to appropriate page values
+
+## Supported Processors
+
+- Infineon C167CR
+- Infineon C167CS
+
+## Known Limitations
+
+- Manually overridden switches show case labels as addresses (e.g., `case 0xd08c6:`) instead of indices
+- Nested switches may require manual script invocation for each `jmpi`
+
+## Project Structure
+
+```
+GhidraInfineon/
+├── data/languages/       # SLEIGH processor definitions
+├── src/main/java/        # Analyzers and PCode injectors
+├── ghidra_scripts/       # User scripts
+└── agents.md             # Detailed technical documentation
+```
+
+See [`agents.md`](agents.md) for comprehensive technical documentation.
 
 ## License
 
-Licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-Feel free to fork the repo, create a branch, and submit a pull request with your improvements.
+Contributions welcome! Fork, branch, and submit a PR.
