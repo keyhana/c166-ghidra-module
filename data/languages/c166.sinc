@@ -1629,10 +1629,13 @@ define pcodeop __service_watchdog;
 
 # DIV Rwn
 :div rwn is ExtCountDec & op=0x4B & RWnRWmEqual & rwn {
-	MDL = MDL s/ rwn;
-	MDH = MDH s% rwn;
+	local dividend:2 = MDL;
+	MDL = dividend s/ rwn;
+	MDH = dividend s% rwn;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0);
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1672,10 +1675,13 @@ define pcodeop __service_watchdog;
 
 # DIVU Rwn
 :divu rwn is ExtCountDec & op=0x5B & RWnRWmEqual & rwn {
-	MDL = MDL / rwn;
-	MDH = MDH % rwn;
+	local dividend:2 = MDL;
+	MDL = dividend / rwn;
+	MDH = dividend % rwn;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0);
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
