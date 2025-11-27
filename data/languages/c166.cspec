@@ -48,10 +48,10 @@
         </pcode>
     </callotherfixup>
 
-    <callotherfixup targetop="CopyVarnode">
+    <callotherfixup targetop="c166_switch_load">
         <pcode dynamic="true">
-            <input name="in"/>
-            <output name="out"/>
+            <input name="ptr" size="2"/>
+            <output name="val" size="2"/>
         </pcode>
     </callotherfixup>
 

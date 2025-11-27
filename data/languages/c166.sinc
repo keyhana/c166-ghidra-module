@@ -6,9 +6,10 @@ define space ram type=ram_space size=3 default;
 define space register type=register_space size=2;
 
 define pcodeop GetPagedOffset;
-define pcodeop CopyVarnode;
 define pcodeop push;
 define pcodeop pop;
+define pcodeop segment;
+define pcodeop c166_switch_load;  # Special load for switch tables - injector emits segment() when followed by jmpi
 
 define register offset=0 size=2
 	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 IP ];
@@ -70,7 +71,7 @@ macro setPreFlagsAnd(b) {
 
 macro setPreFlagsSub(a, b) {
 	$(PSW_C) = a < b;
-	$(PSW_V) = ((a s< b) != ((a s< 0) != (a s< 0)));
+	$(PSW_V) = ((a s< 0) != (b s< 0)) & (((a - b) s< 0) != (a s< 0));
 	$(PSW_E) = (b == 0x8000);
 }
 
@@ -113,7 +114,7 @@ macro setBitClearFlags(a) {
 
 macro setDivFlags(a) {
 	$(PSW_C) = 0;
-	$(PSW_V) = !(a == 0x0);
+	$(PSW_V) = (a == 0x0);
 	$(PSW_E) = 0;
 }
 
@@ -188,11 +189,11 @@ attach variables [ rwi ] [ r0 r1 r2 r3 ];
 DataImmW: "#"^data16  is data16 { export *[const]:2 data16; }
 DataImmB: "#"^data16  is data16 { export *[const]:1 data16; }
 
-IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:2tmp; }
-IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 2; export *:2tmp; }
+IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { export *:2rwi; }
+IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:2 = rwi; rwi = rwi + 2; export *:2tmp; }
 IndexImmW: "#"^data3 is idx_imm=0 & data3 { export *[const]:2 data3; }
-IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { local tmp:3 = CopyVarnode(rwi); export *:1tmp; }
-IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:3 = CopyVarnode(rwi); rwi = rwi + 1; export *:1tmp; }
+IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { export *:1rwi; }
+IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:2 = rwi; rwi = rwi + 1; export *:1tmp; }
 IndexImmB: "#"^data3 is idx_imm=0 & data3 { export *[const]:1 data3; }
 
 
@@ -242,19 +243,19 @@ LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + me
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; local reference:2 = *:2(memoff:3); export tmp; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff;   local reference:2 = *:2(memoff:3); export tmp; }
 
-RwnIndW: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:2tmp; }
-RwnIndWP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+2; export *:2tmp; }
-RwmIndW: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
-RwmIndWP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+2; export *:2tmp; }
-RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local tmp:3 = CopyVarnode(rwm); export *:2tmp; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:2 off; }
+RwnIndW: [rwn] is rwn { export *:2rwn; }
+RwnIndWP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+2; export *:2tmp; }
+RwmIndW: [rwm] is rwm { export *:2rwm; }
+RwmIndWP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+2; export *:2tmp; }
+RwmIndWM: [-rwm] is rwm { rwm=rwm-2; export *:2rwm; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = zext(rwm) + GetPagedOffset(DataImmW); export *[ram]:2 off; }
 
-RwnIndB: [rwn] is rwn { local tmp:3 = CopyVarnode(rwn); export *:1tmp; }
-RwnIndBP: [rwn+] is rwn { local tmp:3 = CopyVarnode(rwn); rwn=rwn+1; export *:1tmp; }
-RwmIndB: [rwm] is rwm { local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
-RwmIndBP: [rwm+] is rwm { local tmp:3 = CopyVarnode(rwm); rwm=rwm+1; export *:1tmp; }
-RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local tmp:3 = CopyVarnode(rwm); export *:1tmp; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = CopyVarnode(rwm+DataImmW); export *[ram]:1 off; }
+RwnIndB: [rwn] is rwn { export *:1rwn; }
+RwnIndBP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+1; export *:1tmp; }
+RwmIndB: [rwm] is rwm { export *:1rwm; }
+RwmIndBP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+1; export *:1tmp; }
+RwmIndBM: [-rwm] is rwm { rwm=rwm-1; export *:1rwm; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = zext(rwm) + GetPagedOffset(DataImmW); export *[ram]:1 off; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 
@@ -1147,6 +1148,13 @@ macro Move(a, b) {
 	Move(ShortMemAddrW, DataImmW);
 }
 
+# MOV Rwn, [Rwm] where Rwn==Rwm - Switch table load pattern (same register for dest and ptr)
+# Uses c166_switch_load pcodeop - injector checks if followed by jmpi and emits segment() if so
+:mov rwn, [rwm] is ExtCountDec & op=0xA8 & rwn & rwm & RWnRWmEqual {
+	local val:2 = c166_switch_load(rwn);
+	rwn = val;
+}
+
 # MOV Rwn, [Rwm]
 :mov rwn, RwmIndW is ExtCountDec & op=0xA8 & rwn & RwmIndW {
 	Move(rwn, RwmIndW);
@@ -1411,8 +1419,8 @@ define pcodeop __disable_watchdog;
 
 define pcodeop __end_of_init;
 
-# EINT
-:eint is ExtCountDec & op_32=0xB5B54AB5 {
+# EINIT
+:einit is ExtCountDec & op_32=0xB5B54AB5 {
 	__end_of_init();
 }
 
@@ -1621,10 +1629,13 @@ define pcodeop __service_watchdog;
 
 # DIV Rwn
 :div rwn is ExtCountDec & op=0x4B & RWnRWmEqual & rwn {
-	MDL = MDL s/ rwn;
-	MDH = MDH s% rwn;
+	local dividend:2 = MDL;
+	MDL = dividend s/ rwn;
+	MDH = dividend s% rwn;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0);
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1638,7 +1649,9 @@ define pcodeop __service_watchdog;
 	MDL = res:2;
 	MDH = rem:2;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0) | (res != sext(res:2));
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1652,7 +1665,9 @@ define pcodeop __service_watchdog;
 	MDL = res:2;
 	MDH = rem:2;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0) | (res > 0xFFFF);
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1660,10 +1675,13 @@ define pcodeop __service_watchdog;
 
 # DIVU Rwn
 :divu rwn is ExtCountDec & op=0x5B & RWnRWmEqual & rwn {
-	MDL = MDL / rwn;
-	MDH = MDH % rwn;
+	local dividend:2 = MDL;
+	MDL = dividend / rwn;
+	MDH = dividend % rwn;
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (rwn == 0);
+	$(PSW_E) = 0;
 	setPostFlags(MDL);
 }
 
@@ -1675,7 +1693,9 @@ define pcodeop __service_watchdog;
 	MDL = res[0,16];
 	MDH = res[16,16];
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (res != sext(res:2));
+	$(PSW_E) = 0;
 	setPostFlags(res);
 }
 
@@ -1687,7 +1707,9 @@ define pcodeop __service_watchdog;
 	MDL = res[0,16];
 	MDH = res[16,16];
 	MDC = MDC | (1 << 4);
-	setDivFlags(rwn);
+	$(PSW_C) = 0;
+	$(PSW_V) = (res > 0xFFFF);
+	$(PSW_E) = 0;
 	setPostFlags(res);
 }
 
@@ -1696,6 +1718,7 @@ define pcodeop __service_watchdog;
 # POP Rwn
 :pop ShortMemAddrW is ExtCountDec & op=0xFC & ShortMemAddrW {
 	Pop(ShortMemAddrW);
+	$(PSW_E) = (ShortMemAddrW == 0x8000);
 	setPostFlags(ShortMemAddrW);
 }
 
@@ -1718,7 +1741,7 @@ define pcodeop __service_watchdog;
 	$(PSW_N) = 0;
 	$(PSW_C) = 0;
 	$(PSW_V) = 0;
-	$(PSW_Z) = (rwn == 0x0);
+	$(PSW_Z) = (rwm == 0x0);
 	$(PSW_E) = 0;
 }
 

@@ -1,3 +1,21 @@
+/*
+ * MIT License
+ * Copyright (c) 2024 Keyhan Asadi
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ */
 package ghidrainfineon;
 
 import java.math.BigInteger;
@@ -28,29 +46,25 @@ public class GetPagedOffset extends InjectPayloadCallother {
 		if (ExtpEnRegister != null && ExtpEnRegister.equals(BigInteger.ONE)) {
 			BigInteger bigInteger = program.getProgramContext().getValue(program.getRegister("Extp"), baseAddress, false);
 			if (bigInteger != null) {
-				value = bigInteger.longValue();
+				value = bigInteger.longValue() << 14;
+                offset = offset & 0x3FFF;
 			}
 		} else if (ExtsEnRegister != null && ExtsEnRegister.equals(BigInteger.ONE)) {
 			BigInteger bigInteger = program.getProgramContext().getValue(program.getRegister("Exts"), baseAddress, false);
 			if (bigInteger != null) {
-				value = bigInteger.longValue();
+				value = bigInteger.longValue() << 16;
 			}
 		} else if (PageRegister != null) {
-			value = PageRegister.longValue();
+			value = PageRegister.longValue() << 14;
+            offset = offset & 0x3FFF;
 		}
 
-		return (value << 14) + (offset & 0x3FFF);
+		return value + offset;
 	}
 	
 	@Override
 	public PcodeOp[] getPcode(Program program, InjectContext con) {
 		PcodeOpEmitter emitter = new PcodeOpEmitter(this.language, con.baseAddr, this.uniqueBase);
-		boolean constantAvailable = con.inputlist.getFirst().isConstant();
-
-		if (!constantAvailable) {
-			emitter.emitCopyVarnode(con.output.getFirst(), con.inputlist.getFirst());
-			return emitter.getPcodeOps();
-		}
 
 		long effectiveAddress = this.getEffectiveAddress(program, con.baseAddr, con.inputlist.getFirst().getOffset());
 
