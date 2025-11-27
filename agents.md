@@ -4,6 +4,24 @@
 
 ---
 
+## ⚠️ Important: Instruction Set Reference
+
+**Before modifying, verifying, or implementing any C166 instruction**, consult:
+
+```
+c166ism.md
+```
+
+This file contains the complete **C166 Instruction Set Manual** (converted from PDF). It includes:
+- Instruction syntax and operation semantics
+- Condition flag behavior (E, Z, V, C, N) for each instruction
+- Addressing modes and encoding formats
+- Detailed descriptions and edge cases
+
+**Always verify instruction behavior against this reference** before making changes to `c166.sinc`.
+
+---
+
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
@@ -430,8 +448,12 @@ Far (24-bit) pointers are partially supported. The module defines 3-byte pointer
 
 ## References
 
+### Local References (in this repo)
+- **`c166ism.md`** — C166 Instruction Set Manual (markdown, ~5500 lines). **Primary reference for instruction semantics and flag behavior.**
+- `data/manuals/Infineon-c166_ism_v2.0_2001_03.pdf` — Original PDF manual
+
+### External References
 - [Ghidra SLEIGH Documentation](https://ghidra.re/courses/languages/html/sleigh.html)
 - [Ghidra PCode Reference](https://ghidra.re/courses/languages/html/pcoderef.html)
-- [Infineon C166 Architecture Manual](data/manuals/Infineon-c166_ism_v2.0_2001_03.pdf)
 - [Ghidra Source - PcodeInjectLibrary](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Framework/SoftwareModeling/src/main/java/ghidra/program/model/lang)
 
