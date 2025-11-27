@@ -16,6 +16,7 @@ A **Ghidra** extension for disassembling and decompiling **Infineon C166/C167** 
 
 | Script | Keybinding | Description |
 |--------|------------|-------------|
+| `AddISRLabels.java` | `Ctrl+Shift+I` | Label interrupt vector table and handlers |
 | `CreateDPPReference.java` | `Ctrl+Shift+D` | Manually create DPP-resolved data references |
 | `C166SwitchOverride.java` | `Ctrl+Shift+S` | Force switch table recognition in decompiler |
 
@@ -79,7 +80,7 @@ For best results, set DPP register values in Ghidra:
 
 ## Known Limitations
 
-- Manually overridden switches show case labels as addresses (e.g., `case 0xd08c6:`) instead of indices
+- Manually overridden switches show case labels as addresses (e.g., `case 0x12345:`) instead of indices
 - Nested switches may require manual script invocation for each `jmpi`
 
 ## Project Structure

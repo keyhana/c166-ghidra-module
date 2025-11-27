@@ -251,6 +251,36 @@ This tells the decompiler: "At this address, there's a switch with these targets
 
 ## Ghidra Scripts
 
+### Script Annotation Requirements
+
+**Every Ghidra script MUST include these annotations in comments:**
+
+```java
+// @category C166
+// @keybinding ctrl shift X
+// @menupath Analysis.Script Name Here
+```
+
+- `@category` — Groups scripts in Script Manager (always use `C166`)
+- `@keybinding` — Keyboard shortcut (lowercase, space-separated: `ctrl shift X`)
+- `@menupath` — Menu location (e.g., `Analysis.Add C166 ISR Labels`)
+
+### AddISRLabels.java
+
+**Keybinding**: `Ctrl+Shift+I`  
+**Menu**: `Analysis → Add C166 ISR Labels`
+
+**Purpose**: Label interrupt vector table entries and their handlers.
+
+**Algorithm**:
+1. Scan vector table addresses (0x0000-0x011C)
+2. Disassemble if not already disassembled
+3. Follow jump to find handler address
+4. Detect and label thunk functions
+5. Create/rename handler functions
+
+**Vector Coverage**: RESET, traps (NMI, STOTRAP, STUTRAP, BTRAP), CAPCOM CC0-CC31, Timers T0-T8, GPT, ADC, ASC0, SSC, PWM, CAN
+
 ### CreateDPPReference.java
 
 **Keybinding**: `Ctrl+Shift+D`
