@@ -31,7 +31,11 @@ public class PcodeInject extends PcodeInjectLibrary {
 		super(l);
 		implementedOps = new HashMap<>();
 		implementedOps.put("GetPagedOffset", new GetPagedOffset("getPagedOffset", l, this.getUniqueBase()));
-		uniqueBase += 0x100;
+		// GetPagedOffset doesn't use unique space (only emits COPY from constant)
+		// Reserve small gap just in case PcodeOpEmitter is extended later
+		uniqueBase += 0x10000;
+		// SwitchLoad uses uniqueBase + ((addr >> 1) * 4) for full 24-bit address space
+		// Max: (0xFFFFFF >> 1) * 4 = 0x1FFFFFC (~32MB), but typical code is much smaller
 		implementedOps.put("c166_switch_load", new SwitchLoad("c166_switch_load", l, this.getUniqueBase()));
 	}
 	

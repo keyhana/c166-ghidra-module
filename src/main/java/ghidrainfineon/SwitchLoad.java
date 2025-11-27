@@ -8,7 +8,7 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
  * 
@@ -82,9 +82,13 @@ public class SwitchLoad extends InjectPayloadCallother {
 			PcodeOp[] ops = new PcodeOp[2];
 			
 			// 1. addr = segment(dpp, ptr)
+			// Use full 24-bit instruction address to create unique temp address
+			// Shift right by 1 (instructions are 2-byte aligned) to compress range
+			// Then multiply by 4 (enough for 3-byte varnode) to avoid overlap
+			long uniqueOffset = uniqueBase + ((currentAddr.getOffset() & 0xFFFFFF) >> 1) * 4;
 			Varnode useropId = new Varnode(constSpace.getAddress(segmentUseropIndex), 4);
 			Varnode dppConst = new Varnode(constSpace.getAddress(dppValue), 2);
-			Varnode addrTemp = new Varnode(uniqueSpace.getAddress(uniqueBase), 3);
+			Varnode addrTemp = new Varnode(uniqueSpace.getAddress(uniqueOffset), 3);
 			
 			Varnode[] segInputs = new Varnode[] { useropId, dppConst, ptrInput };
 			ops[0] = new PcodeOp(currentAddr, seqnum++, PcodeOp.CALLOTHER, segInputs, addrTemp);
