@@ -1,9 +1,12 @@
-name: Gradle Package
+name: Build & Release
 
 on:
   push:
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
 
 env:
   GHIDRA_VERSION: "11.4.2"
@@ -12,36 +15,53 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          server-id: github
-          settings-path: ${{ github.workspace }}
 
       - name: Download Ghidra
         run: |
           mkdir -p build
           cd build
-          wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VERSION}_build/ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
-          unzip ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
+          wget -q https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VERSION}_build/ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
+          unzip -q ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
           rm ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_BUILD_DATE}.zip
 
       - name: Set Ghidra environment variable
         run: echo "GHIDRA_INSTALL_DIR=$GITHUB_WORKSPACE/build/ghidra_${GHIDRA_VERSION}_PUBLIC" >> $GITHUB_ENV
 
       - name: Build with Gradle
-        run: ./gradlew buildExtension
+        run: |
+          chmod +x gradlew
+          ./gradlew buildExtension
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: dist/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+          path: dist
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*
