@@ -19,7 +19,6 @@
 package ghidrainfineon;
 
 import java.math.BigInteger;
-import java.util.List;
 import java.util.Set;
 
 import ghidra.app.plugin.core.analysis.ConstantPropagationAnalyzer;
@@ -32,13 +31,9 @@ import ghidra.program.model.address.AddressOutOfBoundsException;
 import ghidra.program.model.address.AddressSetView;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.data.DataType;
-import ghidra.program.model.lang.OperandType;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.*;
-import ghidra.program.model.scalar.Scalar;
-import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.RefType;
-import ghidra.program.model.symbol.SourceType;
 import ghidra.program.util.ContextEvaluator;
 import ghidra.program.util.SymbolicPropogator;
 import ghidra.program.util.VarnodeContext;
@@ -46,10 +41,10 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
 /**
- * Analyzer that post-processes indirect memory references to apply the C166 DPP/EXT paging rules.
- *
- * This logic runs after the standard constant propagation flow and rewrites data references that
- * are still expressed as 16-bit offsets by incorporating the active page register content.
+ * Analyzer that applies C166 DPP/EXTP/EXTS address translation during constant propagation.
+ * 
+ * Overrides evaluateConstant to translate 16-bit addresses to 24-bit physical addresses.
+ * The propagator handles operand detection and reference creation.
  */
 public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 
@@ -65,10 +60,13 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 	private static final long PAGE_MASK = 0x3fffl;
 
 	private final Register[] dppRegisters = new Register[4];
+	private final Register[] gpRegisters = new Register[16];  // r0-r15
 	private Register extp;
 	private Register exts;
 	private Register extpEn;
 	private Register extsEn;
+	private Register extpReg;
+	private Register extsReg;
 
 	public C166AddressAnalyzer() {
 		super(PROCESSOR_NAME);
@@ -127,10 +125,15 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 		for (int i = 0; i < dppRegisters.length; i++) {
 			dppRegisters[i] = program.getRegister("DPP" + i);
 		}
+		for (int i = 0; i < gpRegisters.length; i++) {
+			gpRegisters[i] = program.getRegister("r" + i);
+		}
 		extp = program.getRegister("Extp");
 		exts = program.getRegister("Exts");
 		extpEn = program.getRegister("ExtpEn");
 		extsEn = program.getRegister("ExtsEn");
+		extpReg = program.getRegister("ExtpReg");
+		extsReg = program.getRegister("ExtsReg");
 	}
 
 	private class C166ContextEvaluator extends ConstantPropagationContextEvaluator {
@@ -146,58 +149,61 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			this.ramSpace = dataSpace != null ? dataSpace : factory.getDefaultAddressSpace();
 		}
 
+		/**
+		 * Override evaluateConstant to translate 16-bit addresses to 24-bit using DPP/EXTP/EXTS.
+		 * 
+		 * The propagator uses our returned address as the reference target,
+		 * but uses the ORIGINAL offset for operand detection - so operands are found correctly!
+		 */
 		@Override
-		public boolean evaluateReference(VarnodeContext context, Instruction instr, int pcodeop,
-				Address address, int size, DataType dataType, RefType refType) {
-
-			if (!shouldTranslate(refType, address)) {
-				return super.evaluateReference(context, instr, pcodeop, address, size, dataType,
-					refType);
+		public Address evaluateConstant(VarnodeContext context, Instruction instr, int pcodeop,
+				Address constant, int size, DataType dataType, RefType refType) {
+			
+			// Only translate RAM space addresses
+			if (constant == null || ramSpace == null) {
+				return super.evaluateConstant(context, instr, pcodeop, constant, size, dataType, refType);
 			}
-
-			Address translated = translateAddress(context, address);
-			if (translated == null) {
-				return super.evaluateReference(context, instr, pcodeop, address, size, dataType,
-					refType);
+			
+			// Let parent filter out bad addresses first
+			Address filtered = super.evaluateConstant(context, instr, pcodeop, constant, size, dataType, refType);
+			if (filtered == null) {
+				return null;
 			}
-
-			boolean allow = super.evaluateReference(context, instr, pcodeop, translated, size,
-				dataType, refType);
-			if (!allow) {
-				return false;
+			
+			// Only translate if in RAM space and looks like a 16-bit offset
+			if (!constant.getAddressSpace().equals(ramSpace)) {
+				return filtered;
 			}
-
-			removeLegacyReferences(instr, address);
-			attachReference(context, instr, translated, refType, address);
-			return false;
+			
+			long raw = constant.getAddressableWordOffset();
+			if (raw >= 0x10000) {
+				// Already a 24-bit address
+				return filtered;
+			}
+			
+			// Translate the address
+			Address translated = translateAddress(context, instr, raw);
+			if (translated != null) {
+				return translated;
+			}
+			
+			// Translation failed - return filtered result from parent
+			return filtered;
 		}
 
-		private boolean shouldTranslate(RefType refType, Address address) {
-			if (address == null || ramSpace == null) {
-				return false;
-			}
-			if (!address.getAddressSpace().equals(ramSpace)) {
-				return false;
-			}
-			if (!(refType.isRead() || refType.isWrite() || refType.isData())) {
-				return false;
-			}
-			long raw = address.getAddressableWordOffset();
-			return raw < 0x10000;
-		}
-
-		private Address translateAddress(VarnodeContext context, Address candidate) {
-			long raw = candidate.getAddressableWordOffset();
+		/**
+		 * Translate a 16-bit address to 24-bit using DPP/EXTP/EXTS.
+		 */
+		private Address translateAddress(VarnodeContext context, Instruction instr, long raw) {
+			Address instrAddr = instr.getAddress();
+			ProgramContext progCtx = program.getProgramContext();
 			
 			// Check for EXTS override first (segment-based, uses full 16-bit offset)
-			if (isEnabled(context, extsEn) && exts != null) {
-				BigInteger segValue = context.getValue(exts, false);
-				if (segValue != null) {
-					long segment = segValue.longValue() & 0xFFL;
+			if (isContextEnabled(progCtx, instrAddr, extsEn)) {
+				Long segment = getExtValue(context, progCtx, instrAddr, exts, extsReg);
+				if (segment != null) {
+					segment = segment & 0xFFL;
 					long resolved = (segment << 16) | (raw & 0xFFFFL);
-					if (resolved == raw) {
-						return null;
-					}
 					try {
 						return ramSpace.getAddress(resolved, true);
 					}
@@ -205,18 +211,17 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 						return null;
 					}
 				}
+				// EXTS enabled but value unavailable
+				return null;
 			}
 			
 			// Check for EXTP override (page-based, uses 14-bit offset)
-			if (isEnabled(context, extpEn) && extp != null) {
-				BigInteger pageValue = context.getValue(extp, false);
-				if (pageValue != null) {
-					long page = pageValue.longValue() & 0x3FFL;
+			if (isContextEnabled(progCtx, instrAddr, extpEn)) {
+				Long page = getExtValue(context, progCtx, instrAddr, extp, extpReg);
+				if (page != null) {
+					page = page & 0x3FFL;
 					long innerOffset = raw & PAGE_MASK;
 					long resolved = (page << 14) | innerOffset;
-					if (resolved == raw) {
-						return null;
-					}
 					try {
 						return ramSpace.getAddress(resolved, true);
 					}
@@ -224,6 +229,8 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 						return null;
 					}
 				}
+				// EXTP enabled but value unavailable
+				return null;
 			}
 			
 			// Standard DPP translation
@@ -245,9 +252,6 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			long pageBase = dppValue.longValue() & 0x3FFL;
 			long innerOffset = raw & PAGE_MASK;
 			long resolved = (pageBase << 14) | innerOffset;
-			if (resolved == raw) {
-				return null;
-			}
 
 			try {
 				return ramSpace.getAddress(resolved, true);
@@ -257,103 +261,50 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			}
 		}
 
-		private boolean isEnabled(VarnodeContext context, Register register) {
+		/**
+		 * Check if a context register is enabled (non-zero) using ProgramContext.
+		 */
+		private boolean isContextEnabled(ProgramContext progCtx, Address addr, Register register) {
 			if (register == null) {
 				return false;
 			}
-			BigInteger value = context.getValue(register, false);
+			BigInteger value = progCtx.getValue(register, addr, false);
 			return value != null && !value.equals(BigInteger.ZERO);
 		}
 
-		private void removeLegacyReferences(Instruction instr, Address staleAddress) {
-			if (staleAddress == null) {
-				return;
-			}
-			Reference[] refs = instr.getReferencesFrom();
-			for (Reference ref : refs) {
-				if (!staleAddress.equals(ref.getToAddress())) {
-					continue;
-				}
-				if (ref.getSource() != SourceType.ANALYSIS) {
-					continue;
-				}
-				instr.removeOperandReference(ref.getOperandIndex(), staleAddress);
-			}
-		}
-
-		private void attachReference(VarnodeContext context, Instruction instr, Address target,
-				RefType refType, Address original) {
-
-			int opIndex = findOperandIndex(context, instr, original, refType);
-			if (opIndex == Reference.MNEMONIC) {
-				instr.addMnemonicReference(target, refType, SourceType.ANALYSIS);
-			}
-			else {
-				instr.addOperandReference(opIndex, target, refType, SourceType.ANALYSIS);
-			}
-		}
-
-		private int findOperandIndex(VarnodeContext context, Instruction instr, Address original,
-				RefType refType) {
-
-			if (original == null) {
-				return Reference.MNEMONIC;
-			}
-
-			long wordOffset = original.getAddressableWordOffset();
-			int numOperands = instr.getNumOperands();
-			for (int i = 0; i < numOperands; i++) {
-				int type = instr.getOperandType(i);
-
-				if ((type & OperandType.ADDRESS) != 0) {
-					Address opAddr = instr.getAddress(i);
-					if (opAddr != null && opAddr.getAddressableWordOffset() == wordOffset) {
-						return i;
-					}
-				}
-
-				if ((type & OperandType.SCALAR) != 0) {
-					Scalar scalar = instr.getScalar(i);
-					if (scalar != null) {
-						long value = scalar.getUnsignedValue();
-						if (value == wordOffset || value == (wordOffset >> 1)) {
-							return i;
-						}
-					}
-				}
-
-				if ((type & OperandType.REGISTER) != 0 && refType.isFlow()) {
-					Register reg = instr.getRegister(i);
-					if (reg != null && reg.isProgramCounter()) {
-						return i;
-					}
-				}
-
-				if ((type & OperandType.DYNAMIC) != 0) {
-					List<Object> reps = instr.getDefaultOperandRepresentationList(i);
-					if (reps == null || reps.isEmpty()) {
-						continue;
-					}
-					long residue = wordOffset;
-					for (Object rep : reps) {
-						if (rep instanceof Scalar scalarRep) {
-							residue -= scalarRep.getUnsignedValue();
-						}
-						else if (rep instanceof Register registerRep) {
-							BigInteger regValue = context.getValue(registerRep, false);
-							if (regValue != null) {
-								residue -= regValue.longValue();
+		/**
+		 * Get the EXTP/EXTS value, checking if it's register-based or immediate.
+		 */
+		private Long getExtValue(VarnodeContext varnodeCtx, ProgramContext progCtx, Address addr,
+				Register immReg, Register regIdxReg) {
+			// Check if register-based (regIdx != 0xF)
+			if (regIdxReg != null) {
+				BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
+				if (regIdx != null) {
+					int idx = regIdx.intValue() & 0xF;
+					if (idx != 0xF && idx < gpRegisters.length) {
+						// Register-based: look up the GP register value from VarnodeContext
+						Register gpReg = gpRegisters[idx];
+						if (gpReg != null) {
+							BigInteger gpValue = varnodeCtx.getValue(gpReg, false);
+							if (gpValue != null) {
+								return gpValue.longValue();
 							}
 						}
-					}
-					if (residue == 0) {
-						return i;
+						return null;  // Register-based but value unknown
 					}
 				}
 			}
-
-			return Reference.MNEMONIC;
+			
+			// Immediate mode: use the context register value from ProgramContext
+			if (immReg != null) {
+				BigInteger immValue = progCtx.getValue(immReg, addr, false);
+				if (immValue != null) {
+					return immValue.longValue();
+				}
+			}
+			
+			return null;
 		}
 	}
 }
-
