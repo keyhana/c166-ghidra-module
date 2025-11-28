@@ -10,6 +10,7 @@ define pcodeop push;
 define pcodeop pop;
 define pcodeop segment;
 define pcodeop c166_switch_load;  # Special load for switch tables - injector emits segment() when followed by jmpi
+define pcodeop c166_reg_offset_addr;  # [rwm+#imm] address calc - if imm<0x200: segment(0, rwm+imm), else: DPP-paged
 
 define register offset=0 size=2
 	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 IP ];
@@ -189,11 +190,20 @@ attach variables [ rwi ] [ r0 r1 r2 r3 ];
 DataImmW: "#"^data16  is data16 { export *[const]:2 data16; }
 DataImmB: "#"^data16  is data16 { export *[const]:1 data16; }
 
-IndexImmW: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { export *:2rwi; }
-IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:2 = rwi; rwi = rwi + 2; export *:2tmp; }
+# r0 (stack pointer) - direct access (rwi & rwi=0: define first, then constrain)
+IndexImmW: [rwi] is rwi & rwi=0 & idx_imm=1 & idx_mode=0 { export *:2 rwi; }
+IndexImmW: [rwi^"+"] is rwi & rwi=0 & idx_imm=1 & idx_mode=1 { export *:2 rwi; rwi = rwi + 2; }
+# Other registers - use segment
+IndexImmW: [rwi] is idx_imm=1 & idx_mode=0 & rwi { local addr:3 = segment(0:2, rwi); export *:2 addr; }
+IndexImmW: [rwi^"+"] is idx_imm=1 & idx_mode=1 & rwi { local addr:3 = segment(0:2, rwi); export *:2 addr; rwi = rwi + 2; }
 IndexImmW: "#"^data3 is idx_imm=0 & data3 { export *[const]:2 data3; }
-IndexImmB: [rwi] is idx_imm=1 & idx_mode = 0 & rwi { export *:1rwi; }
-IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode = 1 & rwi { local tmp:2 = rwi; rwi = rwi + 1; export *:1tmp; }
+
+# r0 (stack pointer) - direct access for bytes (rwi & rwi=0: define first, then constrain)
+IndexImmB: [rwi] is rwi & rwi=0 & idx_imm=1 & idx_mode=0 { export *:1 rwi; }
+IndexImmB: [rwi^"+"] is rwi & rwi=0 & idx_imm=1 & idx_mode=1 { export *:1 rwi; rwi = rwi + 1; }
+# Other registers - use segment for bytes
+IndexImmB: [rwi] is idx_imm=1 & idx_mode=0 & rwi { local addr:3 = segment(0:2, rwi); export *:1 addr; }
+IndexImmB: [rwi^"+"] is idx_imm=1 & idx_mode=1 & rwi { local addr:3 = segment(0:2, rwi); export *:1 addr; rwi = rwi + 1; }
 IndexImmB: "#"^data3 is idx_imm=0 & data3 { export *[const]:1 data3; }
 
 
@@ -243,19 +253,37 @@ LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + me
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; local reference:2 = *:2(memoff:3); export tmp; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff;   local reference:2 = *:2(memoff:3); export tmp; }
 
-RwnIndW: [rwn] is rwn { export *:2rwn; }
-RwnIndWP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+2; export *:2tmp; }
-RwmIndW: [rwm] is rwm { export *:2rwm; }
-RwmIndWP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+2; export *:2tmp; }
-RwmIndWM: [-rwm] is rwm { rwm=rwm-2; export *:2rwm; }
-RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = zext(rwm) + GetPagedOffset(DataImmW); export *[ram]:2 off; }
+# r0 (stack pointer) - direct access without segment for stack analysis (define first, then constrain)
+RwnIndW: [rwn] is rwn & rwn=0 { export *:2 rwn; }
+RwnIndWP: [rwn+] is rwn & rwn=0 { local addr:2 = rwn; rwn=rwn+2; export *:2 addr; }
+RwmIndW: [rwm] is rwm & rwm=0 { export *:2 rwm; }
+RwmIndWP: [rwm+] is rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+2; export *:2 addr; }
+RwmIndWM: [-rwm] is rwm & rwm=0 { rwm=rwm-2; export *:2 rwm; }
+RwmIndWOff: [rwm+DataImmW] is rwm & rwm=0; DataImmW { local off:2 = DataImmW + rwm; export *[ram]:2 off; }
 
-RwnIndB: [rwn] is rwn { export *:1rwn; }
-RwnIndBP: [rwn+] is rwn { local tmp:2 = rwn; rwn=rwn+1; export *:1tmp; }
-RwmIndB: [rwm] is rwm { export *:1rwm; }
-RwmIndBP: [rwm+] is rwm { local tmp:2 = rwm; rwm=rwm+1; export *:1tmp; }
-RwmIndBM: [-rwm] is rwm { rwm=rwm-1; export *:1rwm; }
-RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local off:3 = zext(rwm) + GetPagedOffset(DataImmW); export *[ram]:1 off; }
+# Other registers - use segment(0, reg) for proper zero-extension
+RwnIndW: [rwn] is rwn { local addr:3 = segment(0:2, rwn); export *:2 addr; }
+RwnIndWP: [rwn+] is rwn { local addr:3 = segment(0:2, rwn); export *:2 addr; rwn=rwn+2; }
+RwmIndW: [rwm] is rwm { local addr:3 = segment(0:2, rwm); export *:2 addr; }
+RwmIndWP: [rwm+] is rwm { local addr:3 = segment(0:2, rwm); export *:2 addr; rwm=rwm+2; }
+RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local addr:3 = segment(0:2, rwm); export *:2 addr; }
+RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local addr:3 = c166_reg_offset_addr(rwm, DataImmW); export *[ram]:2 addr; }
+
+# r0 (stack pointer) - direct access for byte operations (define first, then constrain)
+RwnIndB: [rwn] is rwn & rwn=0 { export *:1 rwn; }
+RwnIndBP: [rwn+] is rwn & rwn=0 { local addr:2 = rwn; rwn=rwn+1; export *:1 addr; }
+RwmIndB: [rwm] is rwm & rwm=0 { export *:1 rwm; }
+RwmIndBP: [rwm+] is rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+1; export *:1 addr; }
+RwmIndBM: [-rwm] is rwm & rwm=0 { rwm=rwm-1; export *:1 rwm; }
+RwmIndBOff: [rwm+DataImmW] is rwm & rwm=0; DataImmW { local off:2 = rwm + DataImmW; export *[ram]:1 off; }
+
+# Other registers - use segment(0, reg) for byte operations
+RwnIndB: [rwn] is rwn { local addr:3 = segment(0:2, rwn); export *:1 addr; }
+RwnIndBP: [rwn+] is rwn { local addr:3 = segment(0:2, rwn); export *:1 addr; rwn=rwn+1; }
+RwmIndB: [rwm] is rwm { local addr:3 = segment(0:2, rwm); export *:1 addr; }
+RwmIndBP: [rwm+] is rwm { local addr:3 = segment(0:2, rwm); export *:1 addr; rwm=rwm+1; }
+RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local addr:3 = segment(0:2, rwm); export *:1 addr; }
+RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local addr:3 = c166_reg_offset_addr(rwm, DataImmW); export *[ram]:1 addr; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
 
