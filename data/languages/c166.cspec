@@ -55,6 +55,16 @@
         </pcode>
     </callotherfixup>
 
+    <!-- [rwm+#imm] address calculation: if imm < 0x200, use segment(0, rwm+imm) for stack-friendly access -->
+    <!-- else use DPP-paged addressing for proper memory translation -->
+    <callotherfixup targetop="c166_reg_offset_addr">
+        <pcode dynamic="true">
+            <input name="reg" size="2"/>
+            <input name="offset" size="2"/>
+            <output name="addr" size="3"/>
+        </pcode>
+    </callotherfixup>
+
     <global>
         <range space="ram"/>
     </global>

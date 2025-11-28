@@ -71,32 +71,39 @@ public class SwitchLoad extends InjectPayloadCallother {
 		boolean isSwitch = isFollowedByJmpi(program, currentAddr);
 		
 		if (isSwitch && segmentUseropIndex >= 0) {
-			// This is a switch table load - emit segment(dpp, ptr) then load
-			// Find the DPP value for the pointer
+			// This is a switch table load - emit segment(dpp, ptr & 0x3FFF) then load
+			// The mask is needed because segmentop no longer masks (for indirect access support)
 			Long dppValue = getDppForPointer(program, currentAddr, ptrInput);
 			if (dppValue == null) {
 				dppValue = 0L; // Default to DPP0
 			}
 			
 			int seqnum = 0;
-			PcodeOp[] ops = new PcodeOp[2];
+			PcodeOp[] ops = new PcodeOp[3];
 			
-			// 1. addr = segment(dpp, ptr)
-			// Use full 24-bit instruction address to create unique temp address
+			// Use full 24-bit instruction address to create unique temp addresses
 			// Shift right by 1 (instructions are 2-byte aligned) to compress range
-			// Then multiply by 4 (enough for 3-byte varnode) to avoid overlap
-			long uniqueOffset = uniqueBase + ((currentAddr.getOffset() & 0xFFFFFF) >> 1) * 4;
+			// Then multiply by 8 (enough for multiple varnodes) to avoid overlap
+			long uniqueOffset = uniqueBase + ((currentAddr.getOffset() & 0xFFFFFF) >> 1) * 8;
+			
+			// 1. maskedPtr = ptrInput & 0x3FFF (mask to 14-bit page offset)
+			Varnode maskConst = new Varnode(constSpace.getAddress(0x3FFF), 2);
+			Varnode maskedPtr = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
+			Varnode[] andInputs = new Varnode[] { ptrInput, maskConst };
+			ops[0] = new PcodeOp(currentAddr, seqnum++, PcodeOp.INT_AND, andInputs, maskedPtr);
+			
+			// 2. addr = segment(dpp, maskedPtr)
 			Varnode useropId = new Varnode(constSpace.getAddress(segmentUseropIndex), 4);
 			Varnode dppConst = new Varnode(constSpace.getAddress(dppValue), 2);
-			Varnode addrTemp = new Varnode(uniqueSpace.getAddress(uniqueOffset), 3);
+			Varnode addrTemp = new Varnode(uniqueSpace.getAddress(uniqueOffset + 2), 3);
 			
-			Varnode[] segInputs = new Varnode[] { useropId, dppConst, ptrInput };
-			ops[0] = new PcodeOp(currentAddr, seqnum++, PcodeOp.CALLOTHER, segInputs, addrTemp);
+			Varnode[] segInputs = new Varnode[] { useropId, dppConst, maskedPtr };
+			ops[1] = new PcodeOp(currentAddr, seqnum++, PcodeOp.CALLOTHER, segInputs, addrTemp);
 			
-			// 2. output = *addr (load 2 bytes from the computed address)
+			// 3. output = *addr (load 2 bytes from the computed address)
 			Varnode spaceId = new Varnode(constSpace.getAddress(ramSpace.getSpaceID()), 4);
 			Varnode[] loadInputs = new Varnode[] { spaceId, addrTemp };
-			ops[1] = new PcodeOp(currentAddr, seqnum++, PcodeOp.LOAD, loadInputs, output);
+			ops[2] = new PcodeOp(currentAddr, seqnum++, PcodeOp.LOAD, loadInputs, output);
 			
 			return ops;
 		} else {
