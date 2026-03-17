@@ -95,6 +95,7 @@
                 <register name="DPP1"/>
                 <register name="DPP2"/>
                 <register name="DPP3"/>
+                <register name="CP"/>
             </unaffected>
             <killedbycall>
                 <register name="r1"/>       <!-- Volatile registers -->
@@ -105,6 +106,9 @@
                 <register name="r10"/>
                 <register name="r11"/>
                 <register name="PSW"/>      <!-- PSW is volatile -->
+                <register name="MDH"/>      <!-- Multiply/divide results -->
+                <register name="MDL"/>
+                <register name="MDC"/>
             </killedbycall>
         </prototype>
     </default_proto>

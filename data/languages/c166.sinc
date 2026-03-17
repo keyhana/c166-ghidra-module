@@ -261,13 +261,13 @@ LongMemAddrB: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:1tmp; }
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { export 0:2; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { export 0:1; }
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; export tmp; }
-LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff; export tmp; }
 
 # special cases: MDH, MDL, MDC, CP - export registers directly
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe0c & mem [ memoff = 0 + mem; ] { export MDH; }
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe0e & mem [ memoff = 0 + mem; ] { export MDL; }
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff0e & mem [ memoff = 0 + mem; ] { export MDC; }
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe10 & mem [ memoff = 0 + mem; ] { export CP; }
+LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff; export tmp; }
 
 # r0 (stack pointer) - direct access without segment for stack analysis (define first, then constrain)
 RwnIndW: [rwn] is rwn & rwn=0 { export *:2 rwn; }
