@@ -1430,9 +1430,9 @@ define pcodeop __atomic;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
 	local tmp = BitoffAddr;
-	local hbyte:2 = tmp >> 8;
-	hbyte = ((hbyte & (~zext(mask8:1))) | zext(DataImmB));
-	tmp = (tmp & 0x00FF) | (hbyte << 8);
+	local mask_w:2 = zext(mask8:1) << 8;
+	local data_w:2 = zext(DataImmB) << 8;
+	tmp = (tmp & ~mask_w) | data_w;
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
 }
@@ -1445,9 +1445,7 @@ define pcodeop __atomic;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
 	local tmp = BitoffAddr;
-	local lbyte:2 = tmp & 0x00FF;
-	lbyte = ((lbyte & (~zext(mask8:1))) | zext(DataImmB));
-	tmp = (tmp & 0xFF00) | (lbyte & 0x00FF);
+	tmp = (tmp & ~zext(mask8:1)) | zext(DataImmB);
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
 }
