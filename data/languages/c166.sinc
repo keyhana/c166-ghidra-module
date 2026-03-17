@@ -15,11 +15,9 @@ define register offset=0 size=2
 define register offset=0 size=1
 	[ RL0 RH0 RL1 RH1 RL2 RH2 RL3 RH3 RL4 RH4 RL5 RH5 RL6 RH6 RL7 RH7 ];
 
-define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 ];
-define ram offset=0xFE0C size=2 [ MDH MDL ];
-define ram offset=0xFF0E size=2 [ MDC ];
-
-define register offset=0xFE08 size=2 [ CSP ];
+define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 CSP _ MDH MDL ];
+define register offset=0xFE10 size=2 [ CP ];
+define register offset=0xFF0E size=2 [ MDC ];
 define register offset=0xFF10 size=2 [ PSW ];
 
 define register offset=0x50 size=8 contextreg;
@@ -226,6 +224,12 @@ ShortMemAddrB: regoff is ExtrEn=0 & reg=0x8e & reg [ regoff = 0xFE00 + (2 * reg)
 ShortMemAddrW: regoff is ExtrEn=0 & reg=0x8f & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:2 = 0xffff; export tmp; }
 ShortMemAddrB: regoff is ExtrEn=0 & reg=0x8f & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:1 = 0xff; export tmp; }
 
+# special cases: MDH, MDL, MDC, CP - export registers directly
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x06 & reg [ regoff = 0xFE00 + (2 * reg); ] { export MDH; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x07 & reg [ regoff = 0xFE00 + (2 * reg); ] { export MDL; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x87 & reg [ regoff = 0xFE00 + (2 * reg); ] { export MDC; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x08 & reg [ regoff = 0xFE00 + (2 * reg); ] { export CP; }
+
 BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=0 & reg_high < 0xf & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:3 = regoff; export *:2tmp; }
 BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xFF00 + (2 * bitoff); ] { local tmp:3 = regoff; export *:2tmp; }
 BitoffAddr: regoff is ExtrEn=1 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xF100 + (2 * bitoff); ] { local tmp:3 = regoff; export *:2tmp; }
@@ -258,6 +262,12 @@ LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + me
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { export 0:1; }
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; export tmp; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff; export tmp; }
+
+# special cases: MDH, MDL, MDC, CP - export registers directly
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe0c & mem [ memoff = 0 + mem; ] { export MDH; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe0e & mem [ memoff = 0 + mem; ] { export MDL; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff0e & mem [ memoff = 0 + mem; ] { export MDC; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe10 & mem [ memoff = 0 + mem; ] { export CP; }
 
 # r0 (stack pointer) - direct access without segment for stack analysis (define first, then constrain)
 RwnIndW: [rwn] is rwn & rwn=0 { export *:2 rwn; }
