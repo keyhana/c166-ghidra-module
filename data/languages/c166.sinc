@@ -1437,9 +1437,9 @@ define pcodeop __atomic;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
 	local tmp = BitoffAddr;
-	local lbyte:2 = tmp & 0xFF00;
+	local lbyte:2 = tmp & 0x00FF;
 	lbyte = ((lbyte & (~zext(mask8:1))) | zext(DataImmB));
-	tmp = (tmp & 0xFF00) | lbyte;
+	tmp = (tmp & 0xFF00) | (lbyte & 0x00FF);
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
 }
