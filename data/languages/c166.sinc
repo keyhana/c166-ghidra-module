@@ -43,8 +43,8 @@ define context contextreg
 @define PSW_E "PSW[4,1]"
 
 macro setPreFlags(a, b) {
-	$(PSW_C) = ((a + b) < a) | ((a + b) < b);
-	$(PSW_V) = ((a s< 0) == (b s< 0)) & (((a + b) s< 0) != (a s< 0));
+	$(PSW_C) = carry(a, b);
+	$(PSW_V) = scarry(a, b);
 	$(PSW_E) = (b == 0x8000);
 }
 
@@ -56,10 +56,8 @@ macro setPostFlags(result) {
 macro setPreFlagsCarry(a, b) {
 	local lastCarry = $(PSW_C);
 	local sum = a + b;
-	# Carry if (a+b) wrapped OR (a+b+c_in) would wrap
-	$(PSW_C) = (sum < a) | ((sum == 0xFFFF) & lastCarry);
-	local finalSum = sum + zext(lastCarry);
-	$(PSW_V) = ((a s< 0) == (b s< 0)) & ((finalSum s< 0) != (a s< 0));
+	$(PSW_C) = carry(a, b) | carry(sum, zext(lastCarry));
+	$(PSW_V) = scarry(a, b) ^ scarry(sum, zext(lastCarry));
 	$(PSW_E) = (b == 0x8000);
 }
 
@@ -77,16 +75,15 @@ macro setPreFlagsAnd(b) {
 
 macro setPreFlagsSub(a, b) {
 	$(PSW_C) = a < b;
-	$(PSW_V) = ((a s< 0) != (b s< 0)) & (((a - b) s< 0) != (a s< 0));
+	$(PSW_V) = sborrow(a, b);
 	$(PSW_E) = (b == 0x8000);
 }
 
 macro setPreFlagsSubCarry(a, b) {
 	local lastCarry = $(PSW_C);
-	# Borrow if (a < b) OR ((a == b) AND borrow_in)
+	local diff = a - b;
 	$(PSW_C) = (a < b) | ((a == b) & lastCarry);
-	local finalDiff = a - b - zext(lastCarry);
-	$(PSW_V) = ((a s< 0) != (b s< 0)) & ((finalDiff s< 0) != (a s< 0));
+	$(PSW_V) = sborrow(a, b) ^ sborrow(diff, zext(lastCarry));
 	$(PSW_E) = (b == 0x8000);
 }
 
