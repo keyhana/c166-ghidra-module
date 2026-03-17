@@ -1806,10 +1806,27 @@ define pcodeop __service_watchdog;
 
 # ------
 
+# SCXT SP, #data16 -- special case: save original SP before modifying
+:scxt ShortMemAddrW, DataImmW is ExtCountDec & op=0xC6 & reg_high=0xf & reg_low=0 & ShortMemAddrW; DataImmW {
+	local oldSP:2 = r0;
+	r0 = DataImmW;
+	local sp_push:3 = segment(0:2, oldSP - 2);
+	*:2 sp_push = oldSP;
+}
+
 # SCXT reg, #data16
 :scxt ShortMemAddrW, DataImmW is ExtCountDec & op=0xC6 & ShortMemAddrW; DataImmW {
 	Push(ShortMemAddrW);
 	ShortMemAddrW = DataImmW;
+}
+
+# SCXT SP, mem -- special case: save original SP before modifying
+:scxt ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0xD6 & reg_high=0xf & reg_low=0 & ShortMemAddrW; LongMemAddrW {
+	local oldSP:2 = r0;
+	local newval:2 = LongMemAddrW;
+	r0 = newval;
+	local sp_push:3 = segment(0:2, oldSP - 2);
+	*:2 sp_push = oldSP;
 }
 
 # SCXT reg, mem
