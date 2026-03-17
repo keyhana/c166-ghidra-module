@@ -1163,9 +1163,10 @@ macro Cpl(a) {
 
 macro Move(a, b) {
 	local tmp = b;
-	setPreFlagsAnd(tmp);
+	$(PSW_E) = (tmp == 0x8000);
 	a = tmp;
-	setPostFlags(tmp);
+	$(PSW_N) = (tmp s< 0);
+	$(PSW_Z) = (tmp == 0);
 }
 
 # MOV Rwn, Rwm
