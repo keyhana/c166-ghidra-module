@@ -1472,11 +1472,8 @@ define pcodeop __idle;
 
 # ------
 
-define pcodeop __nop;
-
 # NOP
 :nop is ExtCountDec & op_noop=0x00CC {
-	__nop();
 }
 
 # ------
