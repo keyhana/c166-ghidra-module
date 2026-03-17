@@ -139,10 +139,8 @@ macro Pop(a) {
 }
 
 macro ReturnIntra() {
-	Pop(IP);
-	local currAddr:3 = inst_start;
-	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(IP);
-	return [jmpAddr];
+	local retAddr:3 = inst_start;
+	return [retAddr];
 }
 
 define token instr_16(16)
@@ -1586,7 +1584,6 @@ define pcodeop __service_watchdog;
 # CALLA cc, caddr
 :calla cc1215, absCaddr is ExtCountDec & op=0xCA & rwm = 0 & cc1215; absCaddr {
 	build cc1215;
-	Push(IP);
 	call absCaddr;
 }
 
@@ -1595,7 +1592,6 @@ define pcodeop __service_watchdog;
 # CALLI cc, [Rwn]
 :calli cc1215, [rwm] is ExtCountDec & op=0xAB & cc1215 & rwm {
 	build cc1215;
-	Push(IP);
 	IP = rwm;
 	local currAddr:3 = inst_start;
 	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(rwm);
@@ -1606,7 +1602,6 @@ define pcodeop __service_watchdog;
 
 # CALLR rel
 :callr rel0815 is ExtCountDec & op=0xBB & rel0815 {
-	Push(IP);
 	call rel0815;
 }
 
@@ -1614,8 +1609,6 @@ define pcodeop __service_watchdog;
 
 # CALLS seg, rel
 :calls relSeg is ExtCountDec & op=0xDA ... & relSeg {
-	Push(CSP);
-	Push(IP);
 	call relSeg;
 }
 
@@ -1639,30 +1632,23 @@ define pcodeop __service_watchdog;
 # RETI
 :reti is ExtCountDec & op_noop=0x88FB {
 	ReturnIntra();
-	Pop(PSW);
 }
 
 # ------
 
 # RETP reg
 :retp ShortMemAddrW is ExtCountDec & op=0xEB & ShortMemAddrW {
-	Pop(IP);
 	Pop(ShortMemAddrW);
-	$(PSW_E) = (ShortMemAddrW == 0x8000);
-	setPostFlags(ShortMemAddrW);
-	local currAddr:3 = inst_start;
-	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(IP);
-	return [jmpAddr];
+	local retAddr:3 = inst_start;
+	return [retAddr];
 }
 
 # ------
 
 # RETS
 :rets is ExtCountDec & op_noop=0xDB {
-	Pop(IP);
-	Pop(CSP);
-	local jmpAddr:3 = (zext(CSP) << 16) | zext(IP);
-	return [jmpAddr];
+	local retAddr:3 = inst_start;
+	return [retAddr];
 }
 
 # ------
@@ -1842,5 +1828,4 @@ define pcodeop __service_watchdog;
 # TRAP #trap7
 :trap trapAddr is ExtCountDec & op=0x9B & trapAddr {
 	call trapAddr;
-	Push(PSW);
 }
