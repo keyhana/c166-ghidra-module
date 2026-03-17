@@ -6,8 +6,6 @@ define space ram type=ram_space size=3 default;
 define space register type=register_space size=2;
 
 define pcodeop GetPagedOffset;
-define pcodeop push;
-define pcodeop pop;
 define pcodeop segment;
 define pcodeop c166_switch_load;  # Special load for switch tables - injector emits segment() when followed by jmpi
 define pcodeop c166_reg_offset_addr;  # [rwm+#imm] address calc - if imm<0x200: segment(0, rwm+imm), else: DPP-paged
@@ -129,11 +127,15 @@ macro setDivFlags(a) {
 }
 
 macro Push(a) {
-	push(a);
+	r0 = r0 - 2;
+	local sp_push:3 = segment(0:2, r0);
+	*:2 sp_push = a;
 }
 
 macro Pop(a) {
-	pop(a);
+	local sp_pop:3 = segment(0:2, r0);
+	a = *:2 sp_pop;
+	r0 = r0 + 2;
 }
 
 macro ReturnIntra() {

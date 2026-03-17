@@ -23,23 +23,6 @@
         </pcode>
     </callfixup>
 
-    <callotherfixup targetop="push">
-        <pcode >
-            <input name="val" size="2"/>
-            <body><![CDATA[
-            tmpptr:4 = 0;
-      ]]></body>
-        </pcode>
-    </callotherfixup>
-
-    <callotherfixup targetop="pop">
-        <pcode>
-            <input name="val" size="2"/>
-            <body><![CDATA[
-            tmpptr:4 = 0;
-      ]]></body>
-        </pcode>
-    </callotherfixup>
 
     <callotherfixup targetop="GetPagedOffset">
         <pcode dynamic="true">
