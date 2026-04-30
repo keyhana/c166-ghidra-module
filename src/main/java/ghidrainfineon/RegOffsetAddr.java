@@ -81,23 +81,42 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		AddressSpace uniqueSpace = language.getAddressFactory().getUniqueSpace();
 		
 		long offset = offsetInput.getOffset();
-		
+
 		// Use instruction address to create unique temp addresses
 		long uniqueOffset = uniqueBase + ((currentAddr.getOffset() & 0xFFFFFF) >> 1) * 16;
-		
-		if (offset < STACK_THRESHOLD && isStackPointer(regInput)) {
-			// Stack access with r0: emit direct zext without segment() for stack analysis
+
+		// EXTP / EXTS overrides take precedence over the stack-pointer
+		// special case. With a segment override active in front of a
+		// register-indirect access the target is memory-mapped hardware,
+		// never the stack; without honouring the override the access
+		// collapses to the low-memory image of the register and creates
+		// phantom references near 0x000000.
+		ProgramContext progCtx = program.getProgramContext();
+		boolean extActive = isContextOne(progCtx, "ExtpEn", currentAddr)
+				|| isContextOne(progCtx, "ExtsEn", currentAddr);
+
+		if (!extActive && offset < STACK_THRESHOLD && isStackPointer(regInput)) {
+			// Stack access with r0 and no segment override: emit direct
+			// zext for stack analysis.
 			return emitDirectStackAccess(currentAddr, regInput, offset, output,
 					constSpace, uniqueSpace, uniqueOffset);
-		} else if (offset < STACK_THRESHOLD) {
-			// Small offset but not r0: use segment(0, reg + offset)
-			return emitSimpleSegment(currentAddr, regInput, offset, output, 
-					constSpace, uniqueSpace, uniqueOffset);
-		} else {
-			// DPP-paged access: segment(dpp, reg + (offset & 0x3FFF))
-			return emitDppSegment(program, currentAddr, regInput, offset, output,
-					constSpace, uniqueSpace, uniqueOffset);
 		}
+
+		// All remaining cases — register-indirect with no offset, with
+		// small offset on a non-stack register, or any larger offset, and
+		// in particular every access with EXTP/EXTS active — go through
+		// emitDppSegment, which already resolves EXTP first, then EXTS,
+		// then the matching DPP, with a raw-offset fall-through when
+		// none of those are known.
+		return emitDppSegment(program, currentAddr, regInput, offset, output,
+				constSpace, uniqueSpace, uniqueOffset);
+	}
+
+	private boolean isContextOne(ProgramContext progCtx, String regName, Address addr) {
+		Register r = progCtx.getRegister(regName);
+		if (r == null) return false;
+		BigInteger v = progCtx.getValue(r, addr, false);
+		return v != null && v.equals(BigInteger.ONE);
 	}
 	
 	/**

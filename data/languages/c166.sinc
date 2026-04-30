@@ -268,12 +268,13 @@ RwmIndWP: [rwm+] is rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+2; export *:2 addr
 RwmIndWM: [-rwm] is rwm & rwm=0 { rwm=rwm-2; export *:2 rwm; }
 RwmIndWOff: [rwm+DataImmW] is rwm & rwm=0; DataImmW { local off:2 = DataImmW + rwm; export *[ram]:2 off; }
 
-# Other registers - use segment(0, reg) for proper zero-extension
-RwnIndW: [rwn] is rwn { local addr:3 = segment(0:2, rwn); export *:2 addr; }
-RwnIndWP: [rwn+] is rwn { local addr:3 = segment(0:2, rwn); export *:2 addr; rwn=rwn+2; }
-RwmIndW: [rwm] is rwm { local addr:3 = segment(0:2, rwm); export *:2 addr; }
-RwmIndWP: [rwm+] is rwm { local addr:3 = segment(0:2, rwm); export *:2 addr; rwm=rwm+2; }
-RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local addr:3 = segment(0:2, rwm); export *:2 addr; }
+# Other registers - go through c166_reg_offset_addr so EXTP/EXTS overrides
+# and DPP-paged translation are honoured (segment(0, reg) ignored both).
+RwnIndW: [rwn] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:2 addr; }
+RwnIndWP: [rwn+] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:2 addr; rwn=rwn+2; }
+RwmIndW: [rwm] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:2 addr; }
+RwmIndWP: [rwm+] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:2 addr; rwm=rwm+2; }
+RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:2 addr; }
 RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local addr:3 = c166_reg_offset_addr(rwm, DataImmW); export *[ram]:2 addr; }
 
 # r0 (stack pointer) - direct access for byte operations (define first, then constrain)
@@ -284,12 +285,12 @@ RwmIndBP: [rwm+] is rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+1; export *:1 addr
 RwmIndBM: [-rwm] is rwm & rwm=0 { rwm=rwm-1; export *:1 rwm; }
 RwmIndBOff: [rwm+DataImmW] is rwm & rwm=0; DataImmW { local off:2 = rwm + DataImmW; export *[ram]:1 off; }
 
-# Other registers - use segment(0, reg) for byte operations
-RwnIndB: [rwn] is rwn { local addr:3 = segment(0:2, rwn); export *:1 addr; }
-RwnIndBP: [rwn+] is rwn { local addr:3 = segment(0:2, rwn); export *:1 addr; rwn=rwn+1; }
-RwmIndB: [rwm] is rwm { local addr:3 = segment(0:2, rwm); export *:1 addr; }
-RwmIndBP: [rwm+] is rwm { local addr:3 = segment(0:2, rwm); export *:1 addr; rwm=rwm+1; }
-RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local addr:3 = segment(0:2, rwm); export *:1 addr; }
+# Other registers - go through c166_reg_offset_addr (see word variant above).
+RwnIndB: [rwn] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:1 addr; }
+RwnIndBP: [rwn+] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:1 addr; rwn=rwn+1; }
+RwmIndB: [rwm] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:1 addr; }
+RwmIndBP: [rwm+] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:1 addr; rwm=rwm+1; }
+RwmIndBM: [-rwm] is rwm { rwm=rwm-1; local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:1 addr; }
 RwmIndBOff: [rwm+DataImmW] is rwm; DataImmW { local addr:3 = c166_reg_offset_addr(rwm, DataImmW); export *[ram]:1 addr; }
 
 RWnRWmEqual: is rwn=rwm { local NOP:1 = 0; }
