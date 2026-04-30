@@ -73,6 +73,25 @@ For best results, set DPP register values in Ghidra:
 2. `Right-click` → `Set Register Values`
 3. Set `DPP0`-`DPP3` to appropriate page values
 
+## Calling Conventions
+
+The module ships two calling conventions; pick per function via the
+function signature editor (`F` in the listing) or set automatically by
+the *Decompiler Parameter ID* analyzer.
+
+| Name | Compiler | Word params | 32-bit / pointer pairs | Return word | Notes |
+|------|----------|-------------|------------------------|-------------|-------|
+| `__stdcall` (default) | Tasking c166 / generic | R12, R13, R14, R15 | R13/R12, R15/R14 | R4 (RL4 char) | Tasking convention; suitable for binaries built with Tasking c166 or unknown toolchains. |
+| `__keil_c166` | Keil Cx66 / µVision | R8, R9, R10, R11, R12 | R9/R8, R11/R10 | R4 (RL4 char) | Keil convention; common in automotive ECUs and other Infineon C16x application code. Bit parameters (R15.0, R15.1, …) are not modeled. |
+
+Both conventions return 32-bit values (long, far pointer) in the **R4/R5**
+pair and assume **R0** as user stack pointer.
+
+If the decompiler shows parameters on the stack and ignores values being
+read from R8–R12 in a Keil-built binary, switch the function's calling
+convention to `__keil_c166` — the decompiler will then recover the
+parameters correctly.
+
 ## Supported Processors
 
 - Infineon C167CR
