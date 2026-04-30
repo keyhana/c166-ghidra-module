@@ -32,8 +32,10 @@ define context contextreg
 	ExtsEn  = (5,5)
 	Extp    = (6,21)
 	Exts    = (22, 29)
-	ExtpReg = (30, 33)  # Register index for register-based EXTP (0-15, 0xF = immediate)
-	ExtsReg = (34, 37)  # Register index for register-based EXTS (0-15, 0xF = immediate)
+	ExtpReg = (30, 33)  # Register index for register-based EXTP (0-15) when ExtpRegMode=1
+	ExtsReg = (34, 37)  # Register index for register-based EXTS (0-15) when ExtsRegMode=1
+	ExtpRegMode = (38, 38)  # 1 = ExtpReg holds GP register index; 0 = immediate-mode (Extp = page)
+	ExtsRegMode = (39, 39)  # 1 = ExtsReg holds GP register index; 0 = immediate-mode (Exts = segment)
 ;
 
 @define PSW_N "PSW[0,1]"
@@ -244,11 +246,11 @@ BitoffAddrZ: z_2 is z=0xf & z_2 { export z_2; }
 
 SetAtomic: "#"^range is irang2 [ range = irang2 + 1; Counter = range; globalset(inst_start, Counter); ] { local tmp:1 = range:1; export tmp; }
 SetExtr: SetAtomic is SetAtomic [ ExtrEn = 1; globalset(inst_start, ExtrEn); ] { local NOP:1 = 0; }
-SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=0; globalset(inst_start, Extp); ExtpReg=rwm; globalset(inst_start, ExtpReg); ] { local NOP:1 = 0; }
-SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=page; globalset(inst_start, Extp); ExtpReg=0xF; globalset(inst_start, ExtpReg); ] { local NOP:1 = 0; }
-SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=0; globalset(inst_start, Exts); ExtsReg=rwm; globalset(inst_start, ExtsReg); ] { local NOP:1 = 0; }
-SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ExtsReg=0xF; globalset(inst_start, ExtsReg); ] { local NOP:1 = 0; }
-ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); ExtpReg=0xF; globalset(inst_start, ExtpReg); ExtsReg=0xF; globalset(inst_start, ExtsReg); ] { local NOP:1 = 0; }
+SetExtpInd: rwm, SetAtomic is rwm & SetAtomic [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=0; globalset(inst_start, Extp); ExtpReg=rwm; globalset(inst_start, ExtpReg); ExtpRegMode=1; globalset(inst_start, ExtpRegMode); ] { local NOP:1 = 0; }
+SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst_start, ExtpEn); Extp=page; globalset(inst_start, Extp); ExtpReg=0; globalset(inst_start, ExtpReg); ExtpRegMode=0; globalset(inst_start, ExtpRegMode); ] { local NOP:1 = 0; }
+SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=0; globalset(inst_start, Exts); ExtsReg=rwm; globalset(inst_start, ExtsReg); ExtsRegMode=1; globalset(inst_start, ExtsRegMode); ] { local NOP:1 = 0; }
+SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ExtsReg=0; globalset(inst_start, ExtsReg); ExtsRegMode=0; globalset(inst_start, ExtsRegMode); ] { local NOP:1 = 0; }
+ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); ExtpReg=0; globalset(inst_start, ExtpReg); ExtsReg=0; globalset(inst_start, ExtsReg); ExtpRegMode=0; globalset(inst_start, ExtpRegMode); ExtsRegMode=0; globalset(inst_start, ExtsRegMode); ] { local NOP:1 = 0; }
 ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_start, Counter);] { local NOP:1 = 0; }
 
 LongMemAddrW: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }

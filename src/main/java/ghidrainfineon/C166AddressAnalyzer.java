@@ -67,6 +67,8 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 	private Register extsEn;
 	private Register extpReg;
 	private Register extsReg;
+	private Register extpRegMode;
+	private Register extsRegMode;
 
 	public C166AddressAnalyzer() {
 		super(PROCESSOR_NAME);
@@ -134,6 +136,8 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 		extsEn = program.getRegister("ExtsEn");
 		extpReg = program.getRegister("ExtpReg");
 		extsReg = program.getRegister("ExtsReg");
+		extpRegMode = program.getRegister("ExtpRegMode");
+		extsRegMode = program.getRegister("ExtsRegMode");
 	}
 
 	private class C166ContextEvaluator extends ConstantPropagationContextEvaluator {
@@ -200,7 +204,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			
 			// Check for EXTS override first (segment-based, uses full 16-bit offset)
 			if (isContextEnabled(progCtx, instrAddr, extsEn)) {
-				Long segment = getExtValue(context, progCtx, instrAddr, exts, extsReg);
+				Long segment = getExtValue(context, progCtx, instrAddr, exts, extsReg, extsRegMode);
 				if (segment != null) {
 					segment = segment & 0xFFL;
 					long resolved = (segment << 16) | (raw & 0xFFFFL);
@@ -217,7 +221,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			
 			// Check for EXTP override (page-based, uses 14-bit offset)
 			if (isContextEnabled(progCtx, instrAddr, extpEn)) {
-				Long page = getExtValue(context, progCtx, instrAddr, extp, extpReg);
+				Long page = getExtValue(context, progCtx, instrAddr, extp, extpReg, extpRegMode);
 				if (page != null) {
 					page = page & 0x3FFL;
 					long innerOffset = raw & PAGE_MASK;
@@ -274,28 +278,36 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 
 		/**
 		 * Get the EXTP/EXTS value, checking if it's register-based or immediate.
+		 *
+		 * Mode is decided by the dedicated 1-bit context register
+		 * (ExtpRegMode/ExtsRegMode). The earlier sentinel-based scheme
+		 * (regIdx == 0xF) collided with the legitimate register index for
+		 * r15.
 		 */
 		private Long getExtValue(VarnodeContext varnodeCtx, ProgramContext progCtx, Address addr,
-				Register immReg, Register regIdxReg) {
-			// Check if register-based (regIdx != 0xF)
-			if (regIdxReg != null) {
-				BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
-				if (regIdx != null) {
-					int idx = regIdx.intValue() & 0xF;
-					if (idx != 0xF && idx < gpRegisters.length) {
-						// Register-based: look up the GP register value from VarnodeContext
-						Register gpReg = gpRegisters[idx];
-						if (gpReg != null) {
-							BigInteger gpValue = varnodeCtx.getValue(gpReg, false);
-							if (gpValue != null) {
-								return gpValue.longValue();
+				Register immReg, Register regIdxReg, Register regModeReg) {
+			if (regModeReg != null) {
+				BigInteger regMode = progCtx.getValue(regModeReg, addr, false);
+				if (regMode != null && regMode.equals(BigInteger.ONE)) {
+					if (regIdxReg != null) {
+						BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
+						if (regIdx != null) {
+							int idx = regIdx.intValue() & 0xF;
+							if (idx < gpRegisters.length) {
+								Register gpReg = gpRegisters[idx];
+								if (gpReg != null) {
+									BigInteger gpValue = varnodeCtx.getValue(gpReg, false);
+									if (gpValue != null) {
+										return gpValue.longValue();
+									}
+								}
 							}
 						}
-						return null;  // Register-based but value unknown
 					}
+					return null;  // Register-based but value unknown
 				}
 			}
-			
+
 			// Immediate mode: use the context register value from ProgramContext
 			if (immReg != null) {
 				BigInteger immValue = progCtx.getValue(immReg, addr, false);
@@ -303,7 +315,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 					return immValue.longValue();
 				}
 			}
-			
+
 			return null;
 		}
 	}

@@ -187,7 +187,7 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		// 1. EXTP override (page-shift = 14)
 		Long extpEnVal = readContext(progCtx, "ExtpEn", addr);
 		if (extpEnVal != null && extpEnVal == 1L) {
-			EffectiveExt extp = readEffectiveExt(program, addr, "Extp", "ExtpReg");
+			EffectiveExt extp = readEffectiveExt(program, addr, "Extp", "ExtpReg", "ExtpRegMode");
 			if (extp != null) {
 				if (extp.isImmediate()) {
 					return emitPagedSegment(addr, reg, offset & 0x3FFF, extp.immValue & 0x3FFL,
@@ -202,7 +202,7 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		// 2. EXTS override (segment shift = 16 bits, full offset preserved)
 		Long extsEnVal = readContext(progCtx, "ExtsEn", addr);
 		if (extsEnVal != null && extsEnVal == 1L) {
-			EffectiveExt exts = readEffectiveExt(program, addr, "Exts", "ExtsReg");
+			EffectiveExt exts = readEffectiveExt(program, addr, "Exts", "ExtsReg", "ExtsRegMode");
 			if (exts != null) {
 				if (exts.isImmediate()) {
 					return emitSegmentShift16(addr, reg, offset & 0xFFFFL, exts.immValue & 0xFFL,
@@ -419,25 +419,35 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	}
 
 	/**
-	 * Resolve the EXTP/EXTS at addr to either an immediate value (regIdx = 0xF)
-	 * or a GP register reference (regIdx = 0..14).
+	 * Resolve EXTP/EXTS at addr.
+	 *
+	 * The disambiguation between register-mode and immediate-mode comes from
+	 * the dedicated 1-bit context register (ExtpRegMode / ExtsRegMode).
+	 * The earlier sentinel-based scheme (regIdx == 0xF -> immediate) collided
+	 * with the legitimate register index for r15: any `extp r15,#1` was
+	 * silently treated as immediate-mode and the register-mode pcode never
+	 * fired, leaving phantom refs at the un-paged 16-bit offset.
 	 */
 	private EffectiveExt readEffectiveExt(Program program, Address addr,
-			String immRegName, String regIdxName) {
+			String immRegName, String regIdxName, String regModeName) {
 		ProgramContext progCtx = program.getProgramContext();
 
-		Register regIdxReg = progCtx.getRegister(regIdxName);
-		if (regIdxReg != null) {
-			BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
-			if (regIdx != null) {
-				int idx = regIdx.intValue() & 0xF;
-				if (idx != 0xF) {
-					Register gpReg = program.getRegister("r" + idx);
-					if (gpReg != null) {
-						return EffectiveExt.registerMode(gpReg);
+		Register regModeReg = progCtx.getRegister(regModeName);
+		if (regModeReg != null) {
+			BigInteger regMode = progCtx.getValue(regModeReg, addr, false);
+			if (regMode != null && regMode.equals(BigInteger.ONE)) {
+				Register regIdxReg = progCtx.getRegister(regIdxName);
+				if (regIdxReg != null) {
+					BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
+					if (regIdx != null) {
+						int idx = regIdx.intValue() & 0xF;
+						Register gpReg = program.getRegister("r" + idx);
+						if (gpReg != null) {
+							return EffectiveExt.registerMode(gpReg);
+						}
 					}
-					return null;
 				}
+				return null;
 			}
 		}
 
