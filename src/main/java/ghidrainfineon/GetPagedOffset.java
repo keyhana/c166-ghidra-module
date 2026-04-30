@@ -38,28 +38,29 @@ public class GetPagedOffset extends InjectPayloadCallother {
 
 	private long getEffectiveAddress(Program program, Address baseAddress, long offset) {
 		int dppNum = Math.toIntExact((offset & 0xC000) >> 14);
-		long value = dppNum;
 		BigInteger PageRegister = program.getProgramContext().getValue(program.getRegister("DPP" + dppNum), baseAddress, false);
 		BigInteger ExtpEnRegister = program.getProgramContext().getValue(program.getRegister("ExtpEn"), baseAddress, false);
 		BigInteger ExtsEnRegister = program.getProgramContext().getValue(program.getRegister("ExtsEn"), baseAddress, false);
 
 		if (ExtpEnRegister != null && ExtpEnRegister.equals(BigInteger.ONE)) {
-			BigInteger bigInteger = program.getProgramContext().getValue(program.getRegister("Extp"), baseAddress, false);
-			if (bigInteger != null) {
-				value = bigInteger.longValue() << 14;
-                offset = offset & 0x3FFF;
+			BigInteger page = program.getProgramContext().getValue(program.getRegister("Extp"), baseAddress, false);
+			if (page != null) {
+				return ((page.longValue() & 0x3FFL) << 14) | (offset & 0x3FFF);
 			}
 		} else if (ExtsEnRegister != null && ExtsEnRegister.equals(BigInteger.ONE)) {
-			BigInteger bigInteger = program.getProgramContext().getValue(program.getRegister("Exts"), baseAddress, false);
-			if (bigInteger != null) {
-				value = bigInteger.longValue() << 16;
+			BigInteger seg = program.getProgramContext().getValue(program.getRegister("Exts"), baseAddress, false);
+			if (seg != null) {
+				return ((seg.longValue() & 0xFFL) << 16) | (offset & 0xFFFF);
 			}
 		} else if (PageRegister != null) {
-			value = PageRegister.longValue() << 14;
-            offset = offset & 0x3FFF;
+			return ((PageRegister.longValue() & 0x3FFL) << 14) | (offset & 0x3FFF);
 		}
 
-		return value + offset;
+		// No translation context available (DPP/EXTP/EXTS unknown at this site):
+		// pass the raw 16-bit offset through unchanged so xref targets stay
+		// consistent with the disassembly operand and with C166AddressAnalyzer's
+		// translateAddress fallback.
+		return offset & 0xFFFF;
 	}
 	
 	@Override
