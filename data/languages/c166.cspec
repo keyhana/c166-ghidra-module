@@ -121,4 +121,86 @@
             </killedbycall>
         </prototype>
     </default_proto>
+
+    <!--
+        Keil C166 calling convention (compiler-specific).
+        Used by binaries built with Keil Cx66 / uVision toolchain (e.g. automotive door
+        controllers, Infineon C16x application code).
+
+        Reference: Keil C166 User's Guide, "Function Parameters" + "SMALL/MEDIUM Model".
+          - Parameters 1..5 (word):       R8, R9, R10, R11, R12
+          - 32-bit / long / far pointer:  register pairs R8/R9, R10/R11
+          - Bit parameters:               R15.0, R15.1, ... (not modeled here)
+          - Overflow:                     user stack via [R0+#disp]
+          - Return word:                  R4 (RL4 for char)
+          - Return long / float / farptr: R4/R5 pair
+          - User stack pointer:           R0 (already declared globally)
+          - Callee-saved (unaffected):    R0..R3, R6, R7
+          - Volatile (killed by call):    R4, R5, R10, R11, PSW, MDH, MDL, MDC
+    -->
+    <prototype name="__keil_c166" extrapop="0" stackshift="0" strategy="register">
+        <input>
+            <pentry minsize="1" maxsize="2">
+                <register name="r8"/>
+            </pentry>
+            <pentry minsize="1" maxsize="2">
+                <register name="r9"/>
+            </pentry>
+            <pentry minsize="3" maxsize="4">
+                <addr space="join" piece1="r9" piece2="r8"/>
+            </pentry>
+            <pentry minsize="1" maxsize="2">
+                <register name="r10"/>
+            </pentry>
+            <pentry minsize="1" maxsize="2">
+                <register name="r11"/>
+            </pentry>
+            <pentry minsize="3" maxsize="4">
+                <addr space="join" piece1="r11" piece2="r10"/>
+            </pentry>
+            <pentry minsize="1" maxsize="2">
+                <register name="r12"/>
+            </pentry>
+            <pentry minsize="1" maxsize="500" align="2">
+                <addr offset="0" space="stack"/>
+            </pentry>
+        </input>
+        <output>
+            <pentry minsize="1" maxsize="1">
+                <register name="RL4"/>
+            </pentry>
+            <pentry minsize="1" maxsize="2">
+                <register name="r4"/>
+            </pentry>
+            <pentry minsize="3" maxsize="4">
+                <addr space="join" piece1="r5" piece2="r4"/>
+            </pentry>
+        </output>
+        <unaffected>
+            <register name="r0"/>
+            <register name="r1"/>
+            <register name="r2"/>
+            <register name="r3"/>
+            <register name="r6"/>
+            <register name="r7"/>
+            <register name="DPP0"/>
+            <register name="DPP1"/>
+            <register name="DPP2"/>
+            <register name="DPP3"/>
+            <register name="CP"/>
+        </unaffected>
+        <killedbycall>
+            <register name="r4"/>
+            <register name="r5"/>
+            <register name="r8"/>       <!-- param 1 (also returns) -->
+            <register name="r9"/>       <!-- param 2 -->
+            <register name="r10"/>      <!-- param 3 -->
+            <register name="r11"/>      <!-- param 4 -->
+            <register name="r12"/>      <!-- param 5 -->
+            <register name="PSW"/>
+            <register name="MDH"/>
+            <register name="MDL"/>
+            <register name="MDC"/>
+        </killedbycall>
+    </prototype>
 </compiler_spec>
