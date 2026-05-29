@@ -184,12 +184,16 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 
 		ProgramContext progCtx = program.getProgramContext();
 
-		// 1. EXTP override
+		// 1. EXTP override (page-shift = 14)
 		Long extpEnVal = readContext(progCtx, "ExtpEn", addr);
 		if (extpEnVal != null && extpEnVal == 1L) {
-			Long extpPage = readEffectiveExtValue(program, addr, "Extp", "ExtpReg");
-			if (extpPage != null) {
-				return emitPagedSegment(addr, reg, offset & 0x3FFF, extpPage & 0x3FFL,
+			EffectiveExt extp = readEffectiveExt(program, addr, "Extp", "ExtpReg", "ExtpRegMode");
+			if (extp != null) {
+				if (extp.isImmediate()) {
+					return emitPagedSegment(addr, reg, offset & 0x3FFF, extp.immValue & 0x3FFL,
+							output, constSpace, uniqueSpace, uniqueOffset);
+				}
+				return emitShiftViaReg(addr, reg, offset & 0x3FFFL, extp.gpRegister, 14,
 						output, constSpace, uniqueSpace, uniqueOffset);
 			}
 			return emitRawFallback(addr, reg, offset, output, constSpace, uniqueSpace, uniqueOffset);
@@ -198,9 +202,13 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		// 2. EXTS override (segment shift = 16 bits, full offset preserved)
 		Long extsEnVal = readContext(progCtx, "ExtsEn", addr);
 		if (extsEnVal != null && extsEnVal == 1L) {
-			Long extsSeg = readEffectiveExtValue(program, addr, "Exts", "ExtsReg");
-			if (extsSeg != null) {
-				return emitSegmentShift16(addr, reg, offset & 0xFFFFL, extsSeg & 0xFFL,
+			EffectiveExt exts = readEffectiveExt(program, addr, "Exts", "ExtsReg", "ExtsRegMode");
+			if (exts != null) {
+				if (exts.isImmediate()) {
+					return emitSegmentShift16(addr, reg, offset & 0xFFFFL, exts.immValue & 0xFFL,
+							output, constSpace, uniqueSpace, uniqueOffset);
+				}
+				return emitShiftViaReg(addr, reg, offset & 0xFFFFL, exts.gpRegister, 16,
 						output, constSpace, uniqueSpace, uniqueOffset);
 			}
 			return emitRawFallback(addr, reg, offset, output, constSpace, uniqueSpace, uniqueOffset);
@@ -297,6 +305,60 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	}
 
 	/**
+	 * Emit `output = (zext(gpReg) << shiftAmount) + zext(reg + maskedOffset)`
+	 * for register-mode EXTP (shift = 14) and EXTS (shift = 16).
+	 *
+	 * The segment/page value lives in `gpReg` at runtime, not in the
+	 * ProgramContext, so it can't be folded into a constant at pcode-gen
+	 * time. Emitting the GP register as a varnode lets the symbolic
+	 * propagator resolve it during analysis: when the immediately
+	 * preceding `mov gpReg,#imm` is constant-propagated, the address
+	 * collapses to a concrete 24-bit target and a real reference is
+	 * created (e.g. for `mov r5,#0x14; exts r5,#1; mov r5,[r4]` the
+	 * target becomes 0x14_0000 + r4).
+	 *
+	 * Carry-into-segment-bit caveat: same as emitSegmentShift16 /
+	 * emitPagedSegment — INT_ADD only differs from INT_OR if the in-page
+	 * sum overflows the page window. Compiler-generated `[reg+#imm]`
+	 * stays inside, so the carry path is unreachable for valid code.
+	 */
+	private PcodeOp[] emitShiftViaReg(Address addr, Varnode reg, long maskedOffset,
+			Register gpReg, int shiftAmount,
+			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
+		int seqnum = 0;
+		PcodeOp[] ops = new PcodeOp[5];
+
+		Varnode gpVarnode = new Varnode(gpReg.getAddress(), gpReg.getMinimumByteSize());
+
+		// 1. sum:2 = reg + maskedOffset
+		Varnode offsetConst = new Varnode(constSpace.getAddress(maskedOffset), 2);
+		Varnode sum = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
+		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { reg, offsetConst }, sum);
+
+		// 2. zsum:3 = zext(sum)
+		Varnode zsum = new Varnode(uniqueSpace.getAddress(uniqueOffset + 4), 3);
+		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT, new Varnode[] { sum }, zsum);
+
+		// 3. zgpReg:3 = zext(gpReg)
+		Varnode zgpReg = new Varnode(uniqueSpace.getAddress(uniqueOffset + 8), 3);
+		ops[2] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT,
+				new Varnode[] { gpVarnode }, zgpReg);
+
+		// 4. shifted:3 = zgpReg << shiftAmount
+		Varnode shiftConst = new Varnode(constSpace.getAddress(shiftAmount), 4);
+		Varnode shifted = new Varnode(uniqueSpace.getAddress(uniqueOffset + 12), 3);
+		ops[3] = new PcodeOp(addr, seqnum++, PcodeOp.INT_LEFT,
+				new Varnode[] { zgpReg, shiftConst }, shifted);
+
+		// 5. output:3 = zsum + shifted
+		ops[4] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { zsum, shifted }, output);
+
+		return ops;
+	}
+
+	/**
 	 * Fallback when no DPP/EXTP/EXTS context is available: emit
 	 * `output = zext((reg + offset) & 0xFFFF)`. Reference target then
 	 * matches the disassembly operand and avoids creating phantom xrefs
@@ -324,34 +386,75 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	}
 
 	/**
-	 * Resolve the actual EXTP/EXTS value at addr — immediate (Extp/Exts context
-	 * register, regIdx = 0xF) or register-mode (Extp/Exts is irrelevant, look up
-	 * GP register named via ExtpReg/ExtsReg).
+	 * Resolved EXTP/EXTS at a given instruction. Either the immediate value
+	 * (encoded directly in the EXTP/EXTS instruction) or the GP register that
+	 * carries the segment/page at runtime (register-mode: `extp Rwm,#irang2`).
+	 *
+	 * Register-mode cannot be reduced to a single value at pcode-generation
+	 * time because GP register contents do not live in the ProgramContext —
+	 * they're propagated by the analyzer/decompiler at analysis time. The
+	 * register reference is therefore preserved and emitted into the pcode
+	 * so the symbolic propagator resolves it later.
 	 */
-	private Long readEffectiveExtValue(Program program, Address addr,
-			String immRegName, String regIdxName) {
+	private static class EffectiveExt {
+		final Long immValue;
+		final Register gpRegister;
+
+		private EffectiveExt(Long immValue, Register gpRegister) {
+			this.immValue = immValue;
+			this.gpRegister = gpRegister;
+		}
+
+		static EffectiveExt immediate(long value) {
+			return new EffectiveExt(value, null);
+		}
+
+		static EffectiveExt registerMode(Register gpReg) {
+			return new EffectiveExt(null, gpReg);
+		}
+
+		boolean isImmediate() {
+			return immValue != null;
+		}
+	}
+
+	/**
+	 * Resolve EXTP/EXTS at addr.
+	 *
+	 * The disambiguation between register-mode and immediate-mode comes from
+	 * the dedicated 1-bit context register (ExtpRegMode / ExtsRegMode).
+	 * The earlier sentinel-based scheme (regIdx == 0xF -> immediate) collided
+	 * with the legitimate register index for r15: any `extp r15,#1` was
+	 * silently treated as immediate-mode and the register-mode pcode never
+	 * fired, leaving phantom refs at the un-paged 16-bit offset.
+	 */
+	private EffectiveExt readEffectiveExt(Program program, Address addr,
+			String immRegName, String regIdxName, String regModeName) {
 		ProgramContext progCtx = program.getProgramContext();
 
-		Register regIdxReg = progCtx.getRegister(regIdxName);
-		if (regIdxReg != null) {
-			BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
-			if (regIdx != null) {
-				int idx = regIdx.intValue() & 0xF;
-				if (idx != 0xF) {
-					Register gpReg = program.getRegister("r" + idx);
-					if (gpReg != null) {
-						BigInteger gpValue = progCtx.getValue(gpReg, addr, false);
-						return gpValue == null ? null : gpValue.longValue();
+		Register regModeReg = progCtx.getRegister(regModeName);
+		if (regModeReg != null) {
+			BigInteger regMode = progCtx.getValue(regModeReg, addr, false);
+			if (regMode != null && regMode.equals(BigInteger.ONE)) {
+				Register regIdxReg = progCtx.getRegister(regIdxName);
+				if (regIdxReg != null) {
+					BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
+					if (regIdx != null) {
+						int idx = regIdx.intValue() & 0xF;
+						Register gpReg = program.getRegister("r" + idx);
+						if (gpReg != null) {
+							return EffectiveExt.registerMode(gpReg);
+						}
 					}
-					return null;
 				}
+				return null;
 			}
 		}
 
 		Register immReg = progCtx.getRegister(immRegName);
 		if (immReg == null) return null;
 		BigInteger v = progCtx.getValue(immReg, addr, false);
-		return v == null ? null : v.longValue();
+		return v == null ? null : EffectiveExt.immediate(v.longValue());
 	}
 
 	/**
