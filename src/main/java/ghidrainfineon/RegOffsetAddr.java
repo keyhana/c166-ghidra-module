@@ -200,29 +200,59 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	}
 
 	/**
-	 * Emit `output = segment(page, reg + maskedOffset)` (page-shift = 14).
+	 * Emit `output = (page << 14) + zext(reg + maskedOffset)` for paged access.
+	 *
+	 * The earlier implementation emitted `segment(page, reg + maskedOffset)`,
+	 * which the segment() pcodeop unfolds as `(page << 14) | sum`. The
+	 * decompiler can't reduce a bitwise OR across an arithmetic sum, so
+	 * accesses like `*(page * 0x4000 + base + index)` rendered with the raw
+	 * 16-bit base offset (e.g. `*(byte *)(uVar3 * 10 + 0x30AC)` instead of
+	 * `handle_table[uVar3]`).
+	 *
+	 * Switching to plain INT_ADD with a constant page contribution lets the
+	 * decompiler fold the constant page+base into a single resolvable
+	 * address, recovering symbol references.
+	 *
+	 * Correctness: + and | only differ when sum overflows the 14-bit page
+	 * window (sum >= 0x4000). Since maskedOffset was already AND-ed with
+	 * 0x3FFF and reg-based indexing in compiler-generated code stays well
+	 * inside the page (cross-page indexing requires absolute long-mem
+	 * encoding, not [reg+#imm]), the carry path is unreachable for valid
+	 * code. Pathological assembler that writes [reg+#imm] with reg + imm
+	 * spilling into the page bits would already be semantically broken at
+	 * the source — and the disassembly operand would mislead just as much.
 	 */
 	private PcodeOp[] emitPagedSegment(Address addr, Varnode reg, long maskedOffset, long page,
 			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
 		int seqnum = 0;
 		PcodeOp[] ops = new PcodeOp[2];
 
-		Varnode offsetConst = new Varnode(constSpace.getAddress(maskedOffset), 2);
-		Varnode sum = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
-		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
-				new Varnode[] { reg, offsetConst }, sum);
+		// Pre-fold the page contribution and the in-page offset into a single
+		// 24-bit constant. Putting the absolute address (e.g. 0x130AC) directly
+		// into the pcode lets the decompiler match it against the symbol table
+		// without further constant propagation across a zero-extend.
+		long absBase = ((page & 0x3FFL) << 14) | (maskedOffset & 0x3FFFL);
 
-		Varnode useropId = new Varnode(constSpace.getAddress(segmentUseropIndex), 4);
-		Varnode pageConst = new Varnode(constSpace.getAddress(page), 2);
-		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.CALLOTHER,
-				new Varnode[] { useropId, pageConst, sum }, output);
+		// 1. zreg:3 = zext(reg)
+		Varnode zreg = new Varnode(uniqueSpace.getAddress(uniqueOffset), 3);
+		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT,
+				new Varnode[] { reg }, zreg);
+
+		// 2. output:3 = zreg + absBase
+		Varnode baseConst = new Varnode(constSpace.getAddress(absBase), 3);
+		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { zreg, baseConst }, output);
 
 		return ops;
 	}
 
 	/**
-	 * Emit `output = (segment << 16) | (reg + offset)` for EXTS-overridden access.
-	 * Cannot use the segment() pcodeop here because it always shifts by 14.
+	 * Emit `output = (segment << 16) + zext(reg + offset)` for EXTS-overridden
+	 * access. Same arithmetic-vs-bitwise tradeoff as emitPagedSegment — the
+	 * 16-bit register+offset never overflows into the segment bits in valid
+	 * compiler-generated code (segment crossing requires explicit handling).
+	 * Using INT_ADD instead of INT_OR keeps the address foldable for the
+	 * decompiler so symbol references survive.
 	 */
 	private PcodeOp[] emitSegmentShift16(Address addr, Varnode reg, long offset, long segment,
 			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
@@ -239,9 +269,9 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		Varnode zsum = new Varnode(uniqueSpace.getAddress(uniqueOffset + 4), 3);
 		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT, new Varnode[] { sum }, zsum);
 
-		// 3. output:3 = zsum | (segment << 16)
-		Varnode segConst = new Varnode(constSpace.getAddress(segment << 16), 3);
-		ops[2] = new PcodeOp(addr, seqnum++, PcodeOp.INT_OR,
+		// 3. output:3 = zsum + (segment << 16)
+		Varnode segConst = new Varnode(constSpace.getAddress((segment & 0xFFL) << 16), 3);
+		ops[2] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
 				new Varnode[] { zsum, segConst }, output);
 
 		return ops;
