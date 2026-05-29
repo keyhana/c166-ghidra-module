@@ -27,6 +27,7 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.*;
 import ghidra.program.model.listing.Program;
+import ghidra.program.model.listing.ProgramContext;
 import ghidra.program.model.pcode.*;
 
 /**
@@ -144,37 +145,166 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	}
 	
 	/**
-	 * Emit segment(dpp, reg + (offset & 0x3FFF)) for DPP-paged access
+	 * Emit a paged-memory address calc for [rwm + #imm] when imm >= STACK_THRESHOLD.
+	 *
+	 * Resolution priority — same hierarchy as the C166 hardware:
+	 *   1. EXTP active + page known   -> segment(Extp, reg + (offset & 0x3FFF))
+	 *   2. EXTS active + segment known -> emit (Exts << 16) | (reg + offset)  (no segment(),
+	 *                                     because the segment() pcodeop is page-shift only)
+	 *   3. DPP[index of offset top bits] known -> segment(DPP, reg + (offset & 0x3FFF))
+	 *   4. None known -> raw fallback: zext((reg + offset) & 0xFFFF) into the 3-byte address.
+	 *
+	 * The previous fallback `dppValue = dppIndex` produced phantom xrefs in the
+	 * 0x0000..0xFFFF window because dppIndex is just the top two bits of offset
+	 * (0..3) and segment(0..3, x) maps near zero, never to the binary's loaded
+	 * pages. The raw fallback at least keeps the encoded address in sync with
+	 * what the disassembly listing renders.
 	 */
-	private PcodeOp[] emitDppSegment(Program program, Address addr, Varnode reg, long offset, 
+	private PcodeOp[] emitDppSegment(Program program, Address addr, Varnode reg, long offset,
 			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
-		
-		// Get DPP value based on offset's upper 2 bits
+
+		ProgramContext progCtx = program.getProgramContext();
+
+		// 1. EXTP override
+		Long extpEnVal = readContext(progCtx, "ExtpEn", addr);
+		if (extpEnVal != null && extpEnVal == 1L) {
+			Long extpPage = readEffectiveExtValue(program, addr, "Extp", "ExtpReg");
+			if (extpPage != null) {
+				return emitPagedSegment(addr, reg, offset & 0x3FFF, extpPage & 0x3FFL,
+						output, constSpace, uniqueSpace, uniqueOffset);
+			}
+			return emitRawFallback(addr, reg, offset, output, constSpace, uniqueSpace, uniqueOffset);
+		}
+
+		// 2. EXTS override (segment shift = 16 bits, full offset preserved)
+		Long extsEnVal = readContext(progCtx, "ExtsEn", addr);
+		if (extsEnVal != null && extsEnVal == 1L) {
+			Long extsSeg = readEffectiveExtValue(program, addr, "Exts", "ExtsReg");
+			if (extsSeg != null) {
+				return emitSegmentShift16(addr, reg, offset & 0xFFFFL, extsSeg & 0xFFL,
+						output, constSpace, uniqueSpace, uniqueOffset);
+			}
+			return emitRawFallback(addr, reg, offset, output, constSpace, uniqueSpace, uniqueOffset);
+		}
+
+		// 3. DPP-paged (default)
 		int dppIndex = (int) ((offset >> 14) & 3);
 		Long dppValue = getDppValue(program, addr, dppIndex);
-		if (dppValue == null) {
-			dppValue = (long) dppIndex; // Fallback
+		if (dppValue != null) {
+			return emitPagedSegment(addr, reg, offset & 0x3FFF, dppValue,
+					output, constSpace, uniqueSpace, uniqueOffset);
 		}
-		
-		long maskedOffset = offset & 0x3FFF;
-		
+
+		// 4. Nothing known — raw 16-bit fallback
+		return emitRawFallback(addr, reg, offset, output, constSpace, uniqueSpace, uniqueOffset);
+	}
+
+	/**
+	 * Emit `output = segment(page, reg + maskedOffset)` (page-shift = 14).
+	 */
+	private PcodeOp[] emitPagedSegment(Address addr, Varnode reg, long maskedOffset, long page,
+			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
 		int seqnum = 0;
 		PcodeOp[] ops = new PcodeOp[2];
-		
-		// 1. sum = reg + maskedOffset
+
 		Varnode offsetConst = new Varnode(constSpace.getAddress(maskedOffset), 2);
 		Varnode sum = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
-		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD, new Varnode[] { reg, offsetConst }, sum);
-		
-		// 2. output = segment(dpp, sum)
+		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { reg, offsetConst }, sum);
+
 		Varnode useropId = new Varnode(constSpace.getAddress(segmentUseropIndex), 4);
-		Varnode dppConst = new Varnode(constSpace.getAddress(dppValue), 2);
+		Varnode pageConst = new Varnode(constSpace.getAddress(page), 2);
 		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.CALLOTHER,
-				new Varnode[] { useropId, dppConst, sum }, output);
-		
+				new Varnode[] { useropId, pageConst, sum }, output);
+
 		return ops;
 	}
-	
+
+	/**
+	 * Emit `output = (segment << 16) | (reg + offset)` for EXTS-overridden access.
+	 * Cannot use the segment() pcodeop here because it always shifts by 14.
+	 */
+	private PcodeOp[] emitSegmentShift16(Address addr, Varnode reg, long offset, long segment,
+			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
+		int seqnum = 0;
+		PcodeOp[] ops = new PcodeOp[3];
+
+		// 1. sum:2 = reg + offset
+		Varnode offsetConst = new Varnode(constSpace.getAddress(offset), 2);
+		Varnode sum = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
+		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { reg, offsetConst }, sum);
+
+		// 2. zsum:3 = zext(sum)
+		Varnode zsum = new Varnode(uniqueSpace.getAddress(uniqueOffset + 4), 3);
+		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT, new Varnode[] { sum }, zsum);
+
+		// 3. output:3 = zsum | (segment << 16)
+		Varnode segConst = new Varnode(constSpace.getAddress(segment << 16), 3);
+		ops[2] = new PcodeOp(addr, seqnum++, PcodeOp.INT_OR,
+				new Varnode[] { zsum, segConst }, output);
+
+		return ops;
+	}
+
+	/**
+	 * Fallback when no DPP/EXTP/EXTS context is available: emit
+	 * `output = zext((reg + offset) & 0xFFFF)`. Reference target then
+	 * matches the disassembly operand and avoids creating phantom xrefs
+	 * in the 0x0000..0xFFFF window.
+	 */
+	private PcodeOp[] emitRawFallback(Address addr, Varnode reg, long offset, Varnode output,
+			AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
+		int seqnum = 0;
+		PcodeOp[] ops = new PcodeOp[2];
+
+		Varnode offsetConst = new Varnode(constSpace.getAddress(offset & 0xFFFFL), 2);
+		Varnode sum = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
+		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { reg, offsetConst }, sum);
+
+		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT, new Varnode[] { sum }, output);
+		return ops;
+	}
+
+	private Long readContext(ProgramContext progCtx, String regName, Address addr) {
+		Register r = progCtx.getRegister(regName);
+		if (r == null) return null;
+		BigInteger v = progCtx.getValue(r, addr, false);
+		return v == null ? null : v.longValue();
+	}
+
+	/**
+	 * Resolve the actual EXTP/EXTS value at addr — immediate (Extp/Exts context
+	 * register, regIdx = 0xF) or register-mode (Extp/Exts is irrelevant, look up
+	 * GP register named via ExtpReg/ExtsReg).
+	 */
+	private Long readEffectiveExtValue(Program program, Address addr,
+			String immRegName, String regIdxName) {
+		ProgramContext progCtx = program.getProgramContext();
+
+		Register regIdxReg = progCtx.getRegister(regIdxName);
+		if (regIdxReg != null) {
+			BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
+			if (regIdx != null) {
+				int idx = regIdx.intValue() & 0xF;
+				if (idx != 0xF) {
+					Register gpReg = program.getRegister("r" + idx);
+					if (gpReg != null) {
+						BigInteger gpValue = progCtx.getValue(gpReg, addr, false);
+						return gpValue == null ? null : gpValue.longValue();
+					}
+					return null;
+				}
+			}
+		}
+
+		Register immReg = progCtx.getRegister(immRegName);
+		if (immReg == null) return null;
+		BigInteger v = progCtx.getValue(immReg, addr, false);
+		return v == null ? null : v.longValue();
+	}
+
 	/**
 	 * Get the DPP register value for the given index
 	 */
