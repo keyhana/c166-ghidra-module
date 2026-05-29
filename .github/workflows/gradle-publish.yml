@@ -9,12 +9,14 @@ on:
       - main
 
 env:
-  GHIDRA_VERSION: "11.4.2"
-  GHIDRA_BUILD_DATE: "20250826"
+  GHIDRA_VERSION: "12.1"
+  GHIDRA_BUILD_DATE: "20260513"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +52,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
 
