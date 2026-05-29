@@ -153,9 +153,28 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			this.ramSpace = dataSpace != null ? dataSpace : factory.getDefaultAddressSpace();
 		}
 
+		@Override
+		public boolean evaluateDestination(VarnodeContext context, Instruction instr) {
+			ProgramContext progCtx = program.getProgramContext();
+			for (int i = 0; i < 4; i++) {
+				Register dpp = dppRegisters[i];
+				if (dpp == null) continue;
+				BigInteger val = context.getValue(dpp, false);
+				if (val != null) {
+					try {
+						progCtx.setValue(dpp, instr.getAddress(),
+							instr.getAddress(), val);
+					} catch (ContextChangeException e) {
+						// ignore - can't set context in delay slot / flow override areas
+					}
+				}
+			}
+			return false;
+		}
+
 		/**
 		 * Override evaluateConstant to translate 16-bit addresses to 24-bit using DPP/EXTP/EXTS.
-		 * 
+		 *
 		 * The propagator uses our returned address as the reference target,
 		 * but uses the ORIGINAL offset for operand detection - so operands are found correctly!
 		 */
