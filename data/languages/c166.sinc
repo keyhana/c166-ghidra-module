@@ -6,8 +6,6 @@ define space ram type=ram_space size=3 default;
 define space register type=register_space size=2;
 
 define pcodeop GetPagedOffset;
-define pcodeop push;
-define pcodeop pop;
 define pcodeop segment;
 define pcodeop c166_switch_load;  # Special load for switch tables - injector emits segment() when followed by jmpi
 define pcodeop c166_reg_offset_addr;  # [rwm+#imm] address calc - if imm<0x200: segment(0, rwm+imm), else: DPP-paged
@@ -17,11 +15,9 @@ define register offset=0 size=2
 define register offset=0 size=1
 	[ RL0 RH0 RL1 RH1 RL2 RH2 RL3 RH3 RL4 RH4 RL5 RH5 RL6 RH6 RL7 RH7 ];
 
-define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 ];
-define ram offset=0xFE0C size=2 [ MDH MDL ];
-define ram offset=0xFF0E size=2 [ MDC ];
-
-define register offset=0xFE08 size=2 [ CSP ];
+define register offset=0xFE00 size=2 [ DPP0 DPP1 DPP2 DPP3 CSP _ MDH MDL ];
+define register offset=0xFE10 size=2 [ CP ];
+define register offset=0xFF0E size=2 [ MDC ];
 define register offset=0xFF10 size=2 [ PSW ];
 
 define register offset=0x50 size=8 contextreg;
@@ -45,8 +41,8 @@ define context contextreg
 @define PSW_E "PSW[4,1]"
 
 macro setPreFlags(a, b) {
-	$(PSW_C) = ((a + b) < a) | ((a + b) < b);
-	$(PSW_V) = ((a s< 0) == (b s< 0)) & (((a + b) s< 0) != (a s< 0));
+	$(PSW_C) = carry(a, b);
+	$(PSW_V) = scarry(a, b);
 	$(PSW_E) = (b == 0x8000);
 }
 
@@ -58,10 +54,8 @@ macro setPostFlags(result) {
 macro setPreFlagsCarry(a, b) {
 	local lastCarry = $(PSW_C);
 	local sum = a + b;
-	# Carry if (a+b) wrapped OR (a+b+c_in) would wrap
-	$(PSW_C) = (sum < a) | ((sum == 0xFFFF) & lastCarry);
-	local finalSum = sum + zext(lastCarry);
-	$(PSW_V) = ((a s< 0) == (b s< 0)) & ((finalSum s< 0) != (a s< 0));
+	$(PSW_C) = carry(a, b) | carry(sum, zext(lastCarry));
+	$(PSW_V) = scarry(a, b) ^ scarry(sum, zext(lastCarry));
 	$(PSW_E) = (b == 0x8000);
 }
 
@@ -79,16 +73,15 @@ macro setPreFlagsAnd(b) {
 
 macro setPreFlagsSub(a, b) {
 	$(PSW_C) = a < b;
-	$(PSW_V) = ((a s< 0) != (b s< 0)) & (((a - b) s< 0) != (a s< 0));
+	$(PSW_V) = sborrow(a, b);
 	$(PSW_E) = (b == 0x8000);
 }
 
 macro setPreFlagsSubCarry(a, b) {
 	local lastCarry = $(PSW_C);
-	# Borrow if (a < b) OR ((a == b) AND borrow_in)
+	local diff = a - b;
 	$(PSW_C) = (a < b) | ((a == b) & lastCarry);
-	local finalDiff = a - b - zext(lastCarry);
-	$(PSW_V) = ((a s< 0) != (b s< 0)) & ((finalDiff s< 0) != (a s< 0));
+	$(PSW_V) = sborrow(a, b) ^ sborrow(diff, zext(lastCarry));
 	$(PSW_E) = (b == 0x8000);
 }
 
@@ -129,18 +122,20 @@ macro setDivFlags(a) {
 }
 
 macro Push(a) {
-	push(a);
+	r0 = r0 - 2;
+	local sp_push:3 = segment(0:2, r0);
+	*:2 sp_push = a;
 }
 
 macro Pop(a) {
-	pop(a);
+	local sp_pop:3 = segment(0:2, r0);
+	a = *:2 sp_pop;
+	r0 = r0 + 2;
 }
 
 macro ReturnIntra() {
-	Pop(IP);
-	local currAddr:3 = inst_start;
-	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(IP);
-	return [jmpAddr];
+	local retAddr:3 = inst_start;
+	return [retAddr];
 }
 
 define token instr_16(16)
@@ -223,20 +218,26 @@ ShortMemAddrB: regoff is ExtrEn=0 & reg_high < 0xf & reg [ regoff = 0xFE00 + (2 
 ShortMemAddrB: regoff is ExtrEn=1 & reg_high < 0xf & reg [ regoff = 0xF000 + (2 * reg); ] { local tmp:3 = regoff; export *:1tmp; }
 ShortMemAddrB: reg_low_b is reg_high=0xf & reg_low_b { export reg_low_b; }
 
-# special cases: ZEROS, ONES
-ShortMemAddrW: regoff is ExtrEn=0 & reg=0x8e & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:2 = 0x0000; local reference:2 = *:2(regoff:3); export tmp; }
-ShortMemAddrB: regoff is ExtrEn=0 & reg=0x8e & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:1 = 0x00;   local reference:2 = *:2(regoff:3); export tmp; }
-ShortMemAddrW: regoff is ExtrEn=0 & reg=0x8f & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:2 = 0xffff; local reference:2 = *:2(regoff:3); export tmp; }
-ShortMemAddrB: regoff is ExtrEn=0 & reg=0x8f & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:1 = 0xff;   local reference:2 = *:2(regoff:3); export tmp; }
+# special cases: ZEROS, ONES - export constants directly
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x8e & reg [ regoff = 0xFE00 + (2 * reg); ] { export 0:2; }
+ShortMemAddrB: regoff is ExtrEn=0 & reg=0x8e & reg [ regoff = 0xFE00 + (2 * reg); ] { export 0:1; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x8f & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:2 = 0xffff; export tmp; }
+ShortMemAddrB: regoff is ExtrEn=0 & reg=0x8f & reg [ regoff = 0xFE00 + (2 * reg); ] { local tmp:1 = 0xff; export tmp; }
+
+# special cases: MDH, MDL, MDC, CP - export registers directly
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x06 & reg [ regoff = 0xFE00 + (2 * reg); ] { export MDH; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x07 & reg [ regoff = 0xFE00 + (2 * reg); ] { export MDL; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x87 & reg [ regoff = 0xFE00 + (2 * reg); ] { export MDC; }
+ShortMemAddrW: regoff is ExtrEn=0 & reg=0x08 & reg [ regoff = 0xFE00 + (2 * reg); ] { export CP; }
 
 BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=0 & reg_high < 0xf & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:3 = regoff; export *:2tmp; }
 BitoffAddr: regoff is ExtrEn=0 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xFF00 + (2 * bitoff); ] { local tmp:3 = regoff; export *:2tmp; }
 BitoffAddr: regoff is ExtrEn=1 & bitoff_high_bit=1 & reg_high < 0xf & bitoff [ regoff = 0xF100 + (2 * bitoff); ] { local tmp:3 = regoff; export *:2tmp; }
 BitoffAddr: reg_low is reg_high=0xf & reg_low { export reg_low; }
 
-# special cases: ZEROS, ONES
-BitoffAddr: regoff is ExtrEn=0 & reg=0x8e & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:2 = 0x0000; local reference:2 = *:2(regoff:3); export tmp; }
-BitoffAddr: regoff is ExtrEn=0 & reg=0x8f & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:2 = 0xffff; local reference:2 = *:2(regoff:3); export tmp; }
+# special cases: ZEROS, ONES - export constants directly
+BitoffAddr: regoff is ExtrEn=0 & reg=0x8e & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { export 0:2; }
+BitoffAddr: regoff is ExtrEn=0 & reg=0x8f & bitoff [ regoff = 0xFD00 + (2 * bitoff); ] { local tmp:2 = 0xffff; export tmp; }
 
 BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=0 & z < 0xf & bitaddr_z [ regoff = 0xFD00 + (2 * bitaddr_z); ] { local tmp:3 = regoff; export *:2tmp; }
 BitoffAddrZ: regoff is ExtrEn=0 & z_high_bit=1 & z < 0xf & bitaddr_z [ regoff = 0xFF00 + (2 * bitaddr_z); ] { local tmp:3 = regoff; export *:2tmp; }
@@ -256,11 +257,17 @@ ExtCountDec: is Counter!=0 [ Counter = Counter - 1; globalset(inst_start, Counte
 LongMemAddrW: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }
 LongMemAddrB: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:1tmp; }
 
-# special cases: ZEROS, ONES
-LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { local tmp:2 = 0x0000; local reference:2 = *:2(memoff:3); export tmp; }
-LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { local tmp:1 = 0x00;   local reference:2 = *:2(memoff:3); export tmp; }
-LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; local reference:2 = *:2(memoff:3); export tmp; }
-LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff;   local reference:2 = *:2(memoff:3); export tmp; }
+# special cases: ZEROS, ONES - export constants directly
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { export 0:2; }
+LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1c & mem [ memoff = 0 + mem; ] { export 0:1; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:2 = 0xffff; export tmp; }
+
+# special cases: MDH, MDL, MDC, CP - export registers directly
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe0c & mem [ memoff = 0 + mem; ] { export MDH; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe0e & mem [ memoff = 0 + mem; ] { export MDL; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff0e & mem [ memoff = 0 + mem; ] { export MDC; }
+LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe10 & mem [ memoff = 0 + mem; ] { export CP; }
+LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff; export tmp; }
 
 # r0 (stack pointer) - direct access without segment for stack analysis (define first, then constrain)
 RwnIndW: [rwn] is rwn & rwn=0 { export *:2 rwn; }
@@ -1166,9 +1173,10 @@ macro Cpl(a) {
 
 macro Move(a, b) {
 	local tmp = b;
-	setPreFlagsAnd(tmp);
+	$(PSW_E) = (tmp == 0x8000);
 	a = tmp;
-	setPostFlags(tmp);
+	$(PSW_N) = (tmp s< 0);
+	$(PSW_Z) = (tmp == 0);
 }
 
 # MOV Rwn, Rwm
@@ -1422,9 +1430,9 @@ define pcodeop __atomic;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
 	local tmp = BitoffAddr;
-	local hbyte:2 = tmp >> 8;
-	hbyte = ((hbyte & (~zext(mask8:1))) | zext(DataImmB));
-	tmp = (tmp & 0x00FF) | (hbyte << 8);
+	local mask_w:2 = zext(mask8:1) << 8;
+	local data_w:2 = zext(DataImmB) << 8;
+	tmp = (tmp & ~mask_w) | data_w;
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
 }
@@ -1437,9 +1445,7 @@ define pcodeop __atomic;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
 	local tmp = BitoffAddr;
-	local lbyte:2 = tmp & 0xFF00;
-	lbyte = ((lbyte & (~zext(mask8:1))) | zext(DataImmB));
-	tmp = (tmp & 0xFF00) | lbyte;
+	tmp = (tmp & ~zext(mask8:1)) | zext(DataImmB);
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
 }
@@ -1474,11 +1480,8 @@ define pcodeop __idle;
 
 # ------
 
-define pcodeop __nop;
-
 # NOP
 :nop is ExtCountDec & op_noop=0x00CC {
-	__nop();
 }
 
 # ------
@@ -1584,7 +1587,6 @@ define pcodeop __service_watchdog;
 # CALLA cc, caddr
 :calla cc1215, absCaddr is ExtCountDec & op=0xCA & rwm = 0 & cc1215; absCaddr {
 	build cc1215;
-	Push(IP);
 	call absCaddr;
 }
 
@@ -1593,7 +1595,6 @@ define pcodeop __service_watchdog;
 # CALLI cc, [Rwn]
 :calli cc1215, [rwm] is ExtCountDec & op=0xAB & cc1215 & rwm {
 	build cc1215;
-	Push(IP);
 	IP = rwm;
 	local currAddr:3 = inst_start;
 	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(rwm);
@@ -1604,7 +1605,6 @@ define pcodeop __service_watchdog;
 
 # CALLR rel
 :callr rel0815 is ExtCountDec & op=0xBB & rel0815 {
-	Push(IP);
 	call rel0815;
 }
 
@@ -1612,8 +1612,6 @@ define pcodeop __service_watchdog;
 
 # CALLS seg, rel
 :calls relSeg is ExtCountDec & op=0xDA ... & relSeg {
-	Push(CSP);
-	Push(IP);
 	call relSeg;
 }
 
@@ -1637,30 +1635,23 @@ define pcodeop __service_watchdog;
 # RETI
 :reti is ExtCountDec & op_noop=0x88FB {
 	ReturnIntra();
-	Pop(PSW);
 }
 
 # ------
 
 # RETP reg
 :retp ShortMemAddrW is ExtCountDec & op=0xEB & ShortMemAddrW {
-	Pop(IP);
 	Pop(ShortMemAddrW);
-	$(PSW_E) = (ShortMemAddrW == 0x8000);
-	setPostFlags(ShortMemAddrW);
-	local currAddr:3 = inst_start;
-	local jmpAddr:3 = (currAddr & 0xFF0000) | zext(IP);
-	return [jmpAddr];
+	local retAddr:3 = inst_start;
+	return [retAddr];
 }
 
 # ------
 
 # RETS
 :rets is ExtCountDec & op_noop=0xDB {
-	Pop(IP);
-	Pop(CSP);
-	local jmpAddr:3 = (zext(CSP) << 16) | zext(IP);
-	return [jmpAddr];
+	local retAddr:3 = inst_start;
+	return [retAddr];
 }
 
 # ------
@@ -1823,10 +1814,27 @@ define pcodeop __service_watchdog;
 
 # ------
 
+# SCXT SP, #data16 -- special case: save original SP before modifying
+:scxt ShortMemAddrW, DataImmW is ExtCountDec & op=0xC6 & reg_high=0xf & reg_low=0 & ShortMemAddrW; DataImmW {
+	local oldSP:2 = r0;
+	r0 = DataImmW;
+	local sp_push:3 = segment(0:2, oldSP - 2);
+	*:2 sp_push = oldSP;
+}
+
 # SCXT reg, #data16
 :scxt ShortMemAddrW, DataImmW is ExtCountDec & op=0xC6 & ShortMemAddrW; DataImmW {
 	Push(ShortMemAddrW);
 	ShortMemAddrW = DataImmW;
+}
+
+# SCXT SP, mem -- special case: save original SP before modifying
+:scxt ShortMemAddrW, LongMemAddrW is ExtCountDec & op=0xD6 & reg_high=0xf & reg_low=0 & ShortMemAddrW; LongMemAddrW {
+	local oldSP:2 = r0;
+	local newval:2 = LongMemAddrW;
+	r0 = newval;
+	local sp_push:3 = segment(0:2, oldSP - 2);
+	*:2 sp_push = oldSP;
 }
 
 # SCXT reg, mem
@@ -1840,5 +1848,4 @@ define pcodeop __service_watchdog;
 # TRAP #trap7
 :trap trapAddr is ExtCountDec & op=0x9B & trapAddr {
 	call trapAddr;
-	Push(PSW);
 }
