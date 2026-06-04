@@ -68,6 +68,7 @@ jobs:
         with:
           files: dist/*
           name: Release ${{ github.ref_name }}
+          generate_release_notes: true
           draft: false
           prerelease: false
         env:
