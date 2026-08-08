@@ -59,5 +59,9 @@ dependencies {
 	// this extension is built.	
 }
 
+buildExtension.doFirst {
+	delete 'data/languages/c166.sla'
+}
+
 // Exclude additional files from the built extension
 // Ex: buildExtension.exclude '.idea/**'
