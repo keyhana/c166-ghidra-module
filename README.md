@@ -109,10 +109,10 @@ GhidraInfineon/
 ├── data/languages/       # SLEIGH processor definitions
 ├── src/main/java/        # Analyzers and PCode injectors
 ├── ghidra_scripts/       # User scripts
-└── agents.md             # Detailed technical documentation
+└── AGENTS.md             # Agent development guidance
 ```
 
-See [`agents.md`](agents.md) for comprehensive technical documentation.
+See [`AGENTS.md`](AGENTS.md) for agent development guidance.
 
 ## License
 

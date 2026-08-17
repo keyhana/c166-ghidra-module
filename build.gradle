@@ -63,5 +63,108 @@ buildExtension.doFirst {
 	delete 'data/languages/c166.sla'
 }
 
+def headlessRoot = layout.buildDirectory.dir('headless-test')
+def headlessModule = headlessRoot.map { it.dir('module') }
+
+tasks.register('stageHeadlessTest', Sync) {
+	group = 'verification'
+	description = 'Stages this extension for isolated headless tests.'
+	dependsOn jar
+	into headlessModule
+	from('Module.manifest')
+	from('extension.properties')
+	from('data') { into 'data' }
+	from(tasks.jar) { into 'lib' }
+	doLast {
+		def moduleDir = headlessModule.get().asFile
+		providers.exec {
+			commandLine "${ghidraInstallDir}/support/sleigh", '-a', new File(moduleDir, 'data/languages').absolutePath
+			environment 'GHIDRA_JAVA_OPTIONS', "-Duser.home=${new File(headlessRoot.get().asFile, 'user-home').absolutePath}"
+		}.result.get()
+	}
+}
+
+tasks.register('headlessTest') {
+	group = 'verification'
+	description = 'Runs isolated Ghidra headless disassembly regression tests.'
+	dependsOn 'stageHeadlessTest'
+	doLast {
+		def casesDir = file('tests/headless/cases')
+		def cases = casesDir.isDirectory() ? casesDir.listFiles().findAll { it.isDirectory() }.sort { it.name } : []
+		if (!cases) {
+			throw new GradleException("No headless cases found under ${casesDir}")
+		}
+
+		def root = headlessRoot.get().asFile
+		def moduleDir = headlessModule.get().asFile
+		def scriptsDir = file('tests/headless/scripts')
+		def failures = []
+		cases.each { caseDir ->
+			def input = new File(caseDir, 'input.bin')
+			def hexInput = new File(caseDir, 'input.hex')
+			def metadata = new File(caseDir, 'case.properties')
+			def expected = new File(caseDir, 'expected.disasm')
+			if (!input.isFile() && hexInput.isFile()) {
+				input = new File(headlessRoot.get().asFile, "inputs/${caseDir.name}.bin")
+				input.parentFile.mkdirs()
+				input.bytes = hexInput.text.replaceAll(/\s/, '').decodeHex()
+			}
+			[input, metadata, expected].each {
+				if (!it.isFile()) throw new GradleException("Missing ${it} for case ${caseDir.name}")
+			}
+
+			def props = new Properties()
+			metadata.withInputStream { props.load(it) }
+			['processor', 'compiler', 'loadBase', 'entryPoints'].each {
+				if (!props.getProperty(it)?.trim()) throw new GradleException("Missing ${it} in ${metadata}")
+			}
+
+			def resultDir = new File(root, "results/${caseDir.name}")
+			def projectDir = new File(root, "projects/${caseDir.name}")
+			delete resultDir, projectDir
+			resultDir.mkdirs()
+			projectDir.mkdirs()
+			def actual = new File(resultDir, 'actual.disasm')
+			def decompiled = new File(resultDir, 'decompiled.txt')
+			def log = new File(resultDir, 'application.log')
+			def scriptLog = new File(resultDir, 'script.log')
+
+			def command = [
+				"${ghidraInstallDir}/support/analyzeHeadless", projectDir.absolutePath, caseDir.name,
+				'-import', input.absolutePath,
+				'-loader', 'BinaryLoader', '-loader-baseAddr', props.loadBase,
+				'-processor', props.processor, '-cspec', props.compiler,
+				'-scriptPath', scriptsDir.absolutePath,
+				'-preScript', 'PrepareHeadlessCase.java', metadata.absolutePath,
+				'-postScript', 'CaptureHeadlessCase.java', metadata.absolutePath, actual.absolutePath, decompiled.absolutePath,
+				'-analysisTimeoutPerFile', '120', '-max-cpu', '1',
+				'-log', log.absolutePath, '-scriptlog', scriptLog.absolutePath
+			]
+			println "Headless case ${caseDir.name}: ${command.join(' ')}"
+			def headless = providers.exec {
+				commandLine command
+				ignoreExitValue = true
+				environment 'GHIDRA_JAVA_OPTIONS', "-Duser.home=${new File(root, 'user-home').absolutePath} -Dghidra.external.modules=${moduleDir.absolutePath}"
+			}
+			def exit = headless.result.get().exitValue
+			print headless.standardOutput.asText.get()
+			if (exit != 0) {
+				failures << "${caseDir.name}: analyzeHeadless exited ${exit}"
+				return
+			}
+			if (!java.util.Arrays.equals(actual.getBytes(), expected.getBytes())) {
+				def diffProcess = providers.exec {
+					commandLine 'diff', '-u', expected.absolutePath, actual.absolutePath
+					ignoreExitValue = true
+				}
+				def diff = diffProcess.result.get().exitValue
+				print diffProcess.standardOutput.asText.get()
+				failures << "${caseDir.name}: disassembly differs (diff exit ${diff})"
+			}
+		}
+		if (failures) throw new GradleException(failures.join('\n'))
+	}
+}
+
 // Exclude additional files from the built extension
 // Ex: buildExtension.exclude '.idea/**'
