@@ -38,10 +38,19 @@ jobs:
       - name: Set Ghidra environment variable
         run: echo "GHIDRA_INSTALL_DIR=$GITHUB_WORKSPACE/build/ghidra_${GHIDRA_VERSION}_PUBLIC" >> $GITHUB_ENV
 
-      - name: Build with Gradle
+      - name: Test and build with Gradle
         run: |
           chmod +x gradlew
+          ./gradlew headlessTest
           ./gradlew buildExtension
+
+      - name: Upload headless test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-test-results
+          path: build/headless-test/results/
+          if-no-files-found: ignore
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
