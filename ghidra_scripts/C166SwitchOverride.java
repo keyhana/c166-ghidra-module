@@ -373,7 +373,7 @@ public class C166SwitchOverride extends GhidraScript {
 
         // Create the JumpTable override for the decompiler
         // This automatically creates labels: override::jmp_XXX::case_N
-        JumpTable jumpTable = new JumpTable(switchAddr, targets, true);
+        JumpTable jumpTable = new JumpTable(switchAddr, targets, true, 0);
         jumpTable.writeOverride(func);
 
         // Fix up function body to include all switch targets
