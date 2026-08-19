@@ -1,0 +1,7 @@
+===== 002210 =====
+
+undefined1 FUN_002210(ushort param_1)
+
+{
+  return byte_table[param_1];
+}

@@ -104,6 +104,7 @@ tasks.register('headlessTest') {
 			def hexInput = new File(caseDir, 'input.hex')
 			def metadata = new File(caseDir, 'case.properties')
 			def expected = new File(caseDir, 'expected.disasm')
+			def expectedDecomp = new File(caseDir, 'expected.decomp')
 			def expectedStack = new File(caseDir, 'expected.stack')
 			if (!input.isFile() && hexInput.isFile()) {
 				input = new File(headlessRoot.get().asFile, "inputs/${caseDir.name}.bin")
@@ -169,6 +170,15 @@ tasks.register('headlessTest') {
 				def diff = diffProcess.result.get().exitValue
 				print diffProcess.standardOutput.asText.get()
 				failures << "${caseDir.name}: disassembly differs (diff exit ${diff})"
+			}
+			if (expectedDecomp.isFile() && !java.util.Arrays.equals(decompiled.getBytes(), expectedDecomp.getBytes())) {
+				def diffProcess = providers.exec {
+					commandLine 'diff', '-u', expectedDecomp.absolutePath, decompiled.absolutePath
+					ignoreExitValue = true
+				}
+				def diff = diffProcess.result.get().exitValue
+				print diffProcess.standardOutput.asText.get()
+				failures << "${caseDir.name}: decompilation differs (diff exit ${diff})"
 			}
 			if (stackRequested && !java.util.Arrays.equals(actualStack.getBytes(), expectedStack.getBytes())) {
 				def diffProcess = providers.exec {

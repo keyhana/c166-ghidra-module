@@ -17,6 +17,7 @@ decompiler semantics.
    for headless tests and removes source-tree copy before extension builds.
 5. Leave smallest runnable regression that fails on original bug and checks
    externally visible result: disassembly, reference target, p-code, or decompilation.
+6. Always checkout to main and fetch upstream changes and start from a new branch before starting to change code.
 
 ## Addressing Invariants
 

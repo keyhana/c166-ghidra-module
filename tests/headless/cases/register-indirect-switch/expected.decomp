@@ -1,0 +1,16 @@
+===== 000000 =====
+
+void RESET_VECTOR(void)
+
+{
+  undefined2 unaff_r8;
+
+  switch(unaff_r8) {
+  case 0:
+    return;
+  case 1:
+    return;
+  default:
+    return;
+  }
+}

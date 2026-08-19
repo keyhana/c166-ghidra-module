@@ -218,12 +218,38 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		int dppIndex = (int) ((offset >> 14) & 3);
 		Long dppValue = getDppValue(program, addr, dppIndex);
 		if (dppValue != null) {
+			if (offset >= STACK_THRESHOLD) {
+				return emitIndexedPagedAddress(addr, reg, offset & 0x3FFF, dppValue,
+						output, constSpace, uniqueSpace, uniqueOffset);
+			}
 			return emitPagedSegment(addr, reg, offset & 0x3FFF, dppValue,
 					output, constSpace, uniqueSpace, uniqueOffset);
 		}
 
 		// 4. Nothing known — raw 16-bit fallback
 		return emitRawFallback(addr, reg, offset, output, constSpace, uniqueSpace, uniqueOffset);
+	}
+
+	/**
+	 * Emit a decompiler-friendly indexed DPP address for the large-immediate
+	 * form: {@code output = zext(reg) + ((page << 14) | offset)}.
+	 *
+	 * Compilers use a large immediate as the array base and the register as
+	 * its index. Keeping the translated base constant lets Ghidra recover the
+	 * symbol instead of rendering masked pointer arithmetic. Small offsets and
+	 * extension overrides retain the hardware-masked path in emitPagedSegment.
+	 */
+	private PcodeOp[] emitIndexedPagedAddress(Address addr, Varnode reg, long maskedOffset,
+			long page, Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace,
+			long uniqueOffset) {
+		PcodeOp[] ops = new PcodeOp[2];
+		Varnode zreg = new Varnode(uniqueSpace.getAddress(uniqueOffset), 3);
+		ops[0] = new PcodeOp(addr, 0, PcodeOp.INT_ZEXT, new Varnode[] { reg }, zreg);
+
+		long absoluteBase = ((page & 0x3FFL) << 14) | (maskedOffset & 0x3FFFL);
+		Varnode base = new Varnode(constSpace.getAddress(absoluteBase), 3);
+		ops[1] = new PcodeOp(addr, 1, PcodeOp.INT_ADD, new Varnode[] { zreg, base }, output);
+		return ops;
 	}
 
 	/**
