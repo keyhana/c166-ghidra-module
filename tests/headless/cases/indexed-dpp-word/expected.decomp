@@ -1,0 +1,7 @@
+===== 002010 =====
+
+undefined2 FUN_002010(void)
+
+{
+  return word_table;
+}

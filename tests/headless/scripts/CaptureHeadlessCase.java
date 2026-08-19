@@ -105,7 +105,7 @@ public class CaptureHeadlessCase extends HeadlessScript {
         finally {
             decompiler.dispose();
         }
-        return output.toString();
+        return output.toString().replaceAll("(?m)[ \\t]+$", "").stripTrailing() + '\n';
     }
 
     private static String formatAddress(Address address) {

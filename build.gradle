@@ -104,6 +104,8 @@ tasks.register('headlessTest') {
 			def hexInput = new File(caseDir, 'input.hex')
 			def metadata = new File(caseDir, 'case.properties')
 			def expected = new File(caseDir, 'expected.disasm')
+			def expectedDecomp = new File(caseDir, 'expected.decomp')
+			def expectedStack = new File(caseDir, 'expected.stack')
 			if (!input.isFile() && hexInput.isFile()) {
 				input = new File(headlessRoot.get().asFile, "inputs/${caseDir.name}.bin")
 				input.parentFile.mkdirs()
@@ -118,6 +120,10 @@ tasks.register('headlessTest') {
 			['processor', 'compiler', 'loadBase', 'entryPoints'].each {
 				if (!props.getProperty(it)?.trim()) throw new GradleException("Missing ${it} in ${metadata}")
 			}
+			def stackRequested = props.getProperty('stack', '').trim()
+			if (stackRequested && !expectedStack.isFile()) {
+				throw new GradleException("Missing ${expectedStack} for case ${caseDir.name}")
+			}
 
 			def resultDir = new File(root, "results/${caseDir.name}")
 			def projectDir = new File(root, "projects/${caseDir.name}")
@@ -126,9 +132,12 @@ tasks.register('headlessTest') {
 			projectDir.mkdirs()
 			def actual = new File(resultDir, 'actual.disasm')
 			def decompiled = new File(resultDir, 'decompiled.txt')
+			def actualStack = new File(resultDir, 'actual.stack')
 			def log = new File(resultDir, 'application.log')
 			def scriptLog = new File(resultDir, 'script.log')
 
+			def captureArgs = [metadata.absolutePath, actual.absolutePath, decompiled.absolutePath]
+			if (stackRequested) captureArgs << actualStack.absolutePath
 			def command = [
 				"${ghidraInstallDir}/support/analyzeHeadless", projectDir.absolutePath, caseDir.name,
 				'-import', input.absolutePath,
@@ -136,7 +145,8 @@ tasks.register('headlessTest') {
 				'-processor', props.processor, '-cspec', props.compiler,
 				'-scriptPath', scriptsDir.absolutePath,
 				'-preScript', 'PrepareHeadlessCase.java', metadata.absolutePath,
-				'-postScript', 'CaptureHeadlessCase.java', metadata.absolutePath, actual.absolutePath, decompiled.absolutePath,
+				'-postScript', 'CaptureHeadlessCase.java'
+			] + captureArgs + [
 				'-analysisTimeoutPerFile', '120', '-max-cpu', '1',
 				'-log', log.absolutePath, '-scriptlog', scriptLog.absolutePath
 			]
@@ -160,6 +170,24 @@ tasks.register('headlessTest') {
 				def diff = diffProcess.result.get().exitValue
 				print diffProcess.standardOutput.asText.get()
 				failures << "${caseDir.name}: disassembly differs (diff exit ${diff})"
+			}
+			if (expectedDecomp.isFile() && !java.util.Arrays.equals(decompiled.getBytes(), expectedDecomp.getBytes())) {
+				def diffProcess = providers.exec {
+					commandLine 'diff', '-u', expectedDecomp.absolutePath, decompiled.absolutePath
+					ignoreExitValue = true
+				}
+				def diff = diffProcess.result.get().exitValue
+				print diffProcess.standardOutput.asText.get()
+				failures << "${caseDir.name}: decompilation differs (diff exit ${diff})"
+			}
+			if (stackRequested && !java.util.Arrays.equals(actualStack.getBytes(), expectedStack.getBytes())) {
+				def diffProcess = providers.exec {
+					commandLine 'diff', '-u', expectedStack.absolutePath, actualStack.absolutePath
+					ignoreExitValue = true
+				}
+				def diff = diffProcess.result.get().exitValue
+				print diffProcess.standardOutput.asText.get()
+				failures << "${caseDir.name}: stack analysis differs (diff exit ${diff})"
 			}
 		}
 		if (failures) throw new GradleException(failures.join('\n'))

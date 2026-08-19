@@ -7,6 +7,10 @@ import java.util.Properties;
 
 import ghidra.app.util.headless.HeadlessScript;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.data.ArrayDataType;
+import ghidra.program.model.data.DataType;
+import ghidra.program.model.data.Undefined1DataType;
+import ghidra.program.model.data.Undefined2DataType;
 import ghidra.program.model.lang.Register;
 
 public class PrepareHeadlessCase extends HeadlessScript {
@@ -21,6 +25,7 @@ public class PrepareHeadlessCase extends HeadlessScript {
             properties.load(input);
         }
         seedRegisters(properties.getProperty("registers", ""));
+        seedArrays(properties.getProperty("arrays", ""));
         for (String value : required(properties, "entryPoints").split(",")) {
             Address address = toAddr(value.trim());
             if (!disassemble(address)) {
@@ -29,6 +34,27 @@ public class PrepareHeadlessCase extends HeadlessScript {
             if (getFunctionAt(address) == null && createFunction(address, null) == null) {
                 throw new IllegalStateException("Cannot create function at " + address);
             }
+        }
+    }
+
+    private void seedArrays(String requested) throws Exception {
+        if (requested.isBlank()) return;
+        for (String declaration : requested.split(",")) {
+            String[] parts = declaration.trim().split(":", 4);
+            if (parts.length != 4) {
+                throw new IllegalArgumentException("Invalid array declaration: " + declaration);
+            }
+            Address address = toAddr(parts[0].trim());
+            int elementSize = Integer.parseInt(parts[1].trim());
+            int count = Integer.parseInt(parts[2].trim());
+            DataType elementType = switch (elementSize) {
+                case 1 -> Undefined1DataType.dataType;
+                case 2 -> Undefined2DataType.dataType;
+                default -> throw new IllegalArgumentException(
+                    "Unsupported array element size: " + elementSize);
+            };
+            createData(address, new ArrayDataType(elementType, count, elementSize));
+            createLabel(address, parts[3].trim(), true);
         }
     }
 

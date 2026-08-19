@@ -218,6 +218,10 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		int dppIndex = (int) ((offset >> 14) & 3);
 		Long dppValue = getDppValue(program, addr, dppIndex);
 		if (dppValue != null) {
+			if (offset >= STACK_THRESHOLD) {
+				return emitIndexedPagedAddress(addr, reg, offset & 0x3FFF, dppValue,
+						output, constSpace, uniqueSpace, uniqueOffset);
+			}
 			return emitPagedSegment(addr, reg, offset & 0x3FFF, dppValue,
 					output, constSpace, uniqueSpace, uniqueOffset);
 		}
@@ -227,27 +231,31 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	}
 
 	/**
-	 * Emit `output = (page << 14) + zext(reg + maskedOffset)` for paged access.
+	 * Emit a decompiler-friendly indexed DPP address for the large-immediate
+	 * form: {@code output = zext(reg) + ((page << 14) | offset)}.
 	 *
-	 * The earlier implementation emitted `segment(page, reg + maskedOffset)`,
-	 * which the segment() pcodeop unfolds as `(page << 14) | sum`. The
-	 * decompiler can't reduce a bitwise OR across an arithmetic sum, so
-	 * accesses like `*(page * 0x4000 + base + index)` rendered with the raw
-	 * 16-bit base offset (e.g. `*(byte *)(uVar3 * 10 + 0x30AC)` instead of
-	 * `handle_table[uVar3]`).
-	 *
-	 * Switching to plain INT_ADD with a constant page contribution lets the
-	 * decompiler fold the constant page+base into a single resolvable
-	 * address, recovering symbol references.
-	 *
-	 * Correctness: + and | only differ when sum overflows the 14-bit page
-	 * window (sum >= 0x4000). Since maskedOffset was already AND-ed with
-	 * 0x3FFF and reg-based indexing in compiler-generated code stays well
-	 * inside the page (cross-page indexing requires absolute long-mem
-	 * encoding, not [reg+#imm]), the carry path is unreachable for valid
-	 * code. Pathological assembler that writes [reg+#imm] with reg + imm
-	 * spilling into the page bits would already be semantically broken at
-	 * the source — and the disassembly operand would mislead just as much.
+	 * Compilers use a large immediate as the array base and the register as
+	 * its index. Keeping the translated base constant lets Ghidra recover the
+	 * symbol instead of rendering masked pointer arithmetic. Small offsets and
+	 * extension overrides retain the hardware-masked path in emitPagedSegment.
+	 */
+	private PcodeOp[] emitIndexedPagedAddress(Address addr, Varnode reg, long maskedOffset,
+			long page, Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace,
+			long uniqueOffset) {
+		PcodeOp[] ops = new PcodeOp[2];
+		Varnode zreg = new Varnode(uniqueSpace.getAddress(uniqueOffset), 3);
+		ops[0] = new PcodeOp(addr, 0, PcodeOp.INT_ZEXT, new Varnode[] { reg }, zreg);
+
+		long absoluteBase = ((page & 0x3FFL) << 14) | (maskedOffset & 0x3FFFL);
+		Varnode base = new Varnode(constSpace.getAddress(absoluteBase), 3);
+		ops[1] = new PcodeOp(addr, 1, PcodeOp.INT_ADD, new Varnode[] { zreg, base }, output);
+		return ops;
+	}
+
+	/**
+	 * Emit `output = (page << 14) + zext((reg + maskedOffset) & 0x3fff)`.
+	 * EXTP and DPP replace address bits 23..14, so register bits above the
+	 * 14-bit page offset must not carry into the selected page.
 	 */
 	private PcodeOp[] emitPagedSegment(Address addr, Varnode reg, long maskedOffset, long page,
 			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
@@ -475,4 +483,3 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 		return null;
 	}
 }
-
