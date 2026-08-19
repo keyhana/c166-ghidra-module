@@ -260,23 +260,25 @@ public class RegOffsetAddr extends InjectPayloadCallother {
 	private PcodeOp[] emitPagedSegment(Address addr, Varnode reg, long maskedOffset, long page,
 			Varnode output, AddressSpace constSpace, AddressSpace uniqueSpace, long uniqueOffset) {
 		int seqnum = 0;
-		PcodeOp[] ops = new PcodeOp[2];
+		PcodeOp[] ops = new PcodeOp[4];
 
-		// Pre-fold the page contribution and the in-page offset into a single
-		// 24-bit constant. Putting the absolute address (e.g. 0x130AC) directly
-		// into the pcode lets the decompiler match it against the symbol table
-		// without further constant propagation across a zero-extend.
-		long absBase = ((page & 0x3FFL) << 14) | (maskedOffset & 0x3FFFL);
+		Varnode offsetConst = new Varnode(constSpace.getAddress(maskedOffset & 0x3FFFL), 2);
+		Varnode sum = new Varnode(uniqueSpace.getAddress(uniqueOffset), 2);
+		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { reg, offsetConst }, sum);
 
-		// 1. zreg:3 = zext(reg)
-		Varnode zreg = new Varnode(uniqueSpace.getAddress(uniqueOffset), 3);
-		ops[0] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT,
-				new Varnode[] { reg }, zreg);
+		Varnode pageMask = new Varnode(constSpace.getAddress(0x3FFF), 2);
+		Varnode inPage = new Varnode(uniqueSpace.getAddress(uniqueOffset + 4), 2);
+		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_AND,
+				new Varnode[] { sum, pageMask }, inPage);
 
-		// 2. output:3 = zreg + absBase
-		Varnode baseConst = new Varnode(constSpace.getAddress(absBase), 3);
-		ops[1] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
-				new Varnode[] { zreg, baseConst }, output);
+		Varnode extended = new Varnode(uniqueSpace.getAddress(uniqueOffset + 8), 3);
+		ops[2] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ZEXT,
+				new Varnode[] { inPage }, extended);
+
+		Varnode pageBase = new Varnode(constSpace.getAddress((page & 0x3FFL) << 14), 3);
+		ops[3] = new PcodeOp(addr, seqnum++, PcodeOp.INT_ADD,
+				new Varnode[] { extended, pageBase }, output);
 
 		return ops;
 	}

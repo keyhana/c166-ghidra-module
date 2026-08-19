@@ -270,16 +270,16 @@ LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff0e & mem [ memoff = 0 + me
 LongMemAddrW: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xfe10 & mem [ memoff = 0 + mem; ] { export CP; }
 LongMemAddrB: memoff is ExtsEn=0 & ExtpEn=0 & mem=0xff1e & mem [ memoff = 0 + mem; ] { local tmp:1 = 0xff; export tmp; }
 
-# r0 (stack pointer) - direct access without segment for stack analysis (define first, then constrain)
-RwnIndW: [rwn] is rwn & rwn=0 { export *:2 rwn; }
-RwnIndWP: [rwn+] is rwn & rwn=0 { local addr:2 = rwn; rwn=rwn+2; export *:2 addr; }
-RwmIndW: [rwm] is rwm & rwm=0 { export *:2 rwm; }
-RwmIndWP: [rwm+] is rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+2; export *:2 addr; }
-RwmIndWM: [-rwm] is rwm & rwm=0 { rwm=rwm-2; export *:2 rwm; }
-RwmIndWOff: [rwm+DataImmW] is rwm & rwm=0; DataImmW { local off:2 = DataImmW + rwm; export *[ram]:2 off; }
-
-# Other registers - go through c166_reg_offset_addr so EXTP/EXTS overrides
+# Register-indirect accesses go through c166_reg_offset_addr so EXTP/EXTS overrides
 # and DPP-paged translation are honoured (segment(0, reg) ignored both).
+# Direct r0 forms preserve stack analysis when no override is active.
+RwnIndW: [rwn] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwn & rwn=0 { export *:2 rwn; }
+RwnIndWP: [rwn+] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwn & rwn=0 { local addr:2 = rwn; rwn=rwn+2; export *:2 addr; }
+RwmIndW: [rwm] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0 { export *:2 rwm; }
+RwmIndWP: [rwm+] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+2; export *:2 addr; }
+RwmIndWM: [-rwm] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0 { rwm=rwm-2; export *:2 rwm; }
+RwmIndWOff: [rwm+DataImmW] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0; DataImmW { local off:2 = DataImmW + rwm; export *[ram]:2 off; }
+
 RwnIndW: [rwn] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:2 addr; }
 RwnIndWP: [rwn+] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:2 addr; rwn=rwn+2; }
 RwmIndW: [rwm] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:2 addr; }
@@ -287,15 +287,14 @@ RwmIndWP: [rwm+] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export 
 RwmIndWM: [-rwm] is rwm { rwm=rwm-2; local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:2 addr; }
 RwmIndWOff: [rwm+DataImmW] is rwm; DataImmW { local addr:3 = c166_reg_offset_addr(rwm, DataImmW); export *[ram]:2 addr; }
 
-# r0 (stack pointer) - direct access for byte operations (define first, then constrain)
-RwnIndB: [rwn] is rwn & rwn=0 { export *:1 rwn; }
-RwnIndBP: [rwn+] is rwn & rwn=0 { local addr:2 = rwn; rwn=rwn+1; export *:1 addr; }
-RwmIndB: [rwm] is rwm & rwm=0 { export *:1 rwm; }
-RwmIndBP: [rwm+] is rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+1; export *:1 addr; }
-RwmIndBM: [-rwm] is rwm & rwm=0 { rwm=rwm-1; export *:1 rwm; }
-RwmIndBOff: [rwm+DataImmW] is rwm & rwm=0; DataImmW { local off:2 = rwm + DataImmW; export *[ram]:1 off; }
+# Byte variants use same address injector.
+RwnIndB: [rwn] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwn & rwn=0 { export *:1 rwn; }
+RwnIndBP: [rwn+] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwn & rwn=0 { local addr:2 = rwn; rwn=rwn+1; export *:1 addr; }
+RwmIndB: [rwm] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0 { export *:1 rwm; }
+RwmIndBP: [rwm+] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0 { local addr:2 = rwm; rwm=rwm+1; export *:1 addr; }
+RwmIndBM: [-rwm] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0 { rwm=rwm-1; export *:1 rwm; }
+RwmIndBOff: [rwm+DataImmW] is Counter=0 & ExtpEn=0 & ExtsEn=0 & rwm & rwm=0; DataImmW { local off:2 = DataImmW + rwm; export *[ram]:1 off; }
 
-# Other registers - go through c166_reg_offset_addr (see word variant above).
 RwnIndB: [rwn] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:1 addr; }
 RwnIndBP: [rwn+] is rwn { local addr:3 = c166_reg_offset_addr(rwn, 0:2); export *:1 addr; rwn=rwn+1; }
 RwmIndB: [rwm] is rwm { local addr:3 = c166_reg_offset_addr(rwm, 0:2); export *:1 addr; }
@@ -1203,47 +1202,47 @@ macro Move(a, b) {
 }
 
 # MOV Rwn, [Rwm]
-:mov rwn, RwmIndW is ExtCountDec & op=0xA8 & rwn & RwmIndW {
+:mov rwn, RwmIndW is op=0xA8 & rwn & RwmIndW & ExtCountDec {
 	Move(rwn, RwmIndW);
 }
 
 # MOV Rwn, [Rwm+]
-:mov rwn, RwmIndWP is ExtCountDec & op=0x98 & rwn & RwmIndWP {
+:mov rwn, RwmIndWP is op=0x98 & rwn & RwmIndWP & ExtCountDec {
 	Move(rwn, RwmIndWP);
 }
 
 # MOV [Rwm], Rwn
-:mov RwmIndW, rwn is ExtCountDec & op=0xB8 & rwn & RwmIndW {
+:mov RwmIndW, rwn is op=0xB8 & rwn & RwmIndW & ExtCountDec {
 	Move(RwmIndW, rwn);
 }
 
 # MOV [-Rwm], Rwn
-:mov RwmIndWM, rwn is ExtCountDec & op=0x88 & rwn & RwmIndWM {
+:mov RwmIndWM, rwn is op=0x88 & rwn & RwmIndWM & ExtCountDec {
 	Move(RwmIndWM, rwn);
 }
 
 # MOV [Rwn], [Rwm]
-:mov RwnIndW, RwmIndW is ExtCountDec & op=0xC8 & RwnIndW & RwmIndW {
+:mov RwnIndW, RwmIndW is op=0xC8 & RwnIndW & RwmIndW & ExtCountDec {
 	Move(RwnIndW, RwmIndW);
 }
 
 # MOV [Rwn+], [Rwm]
-:mov RwnIndWP, RwmIndW is ExtCountDec & op=0xD8 & RwnIndWP & RwmIndW {
+:mov RwnIndWP, RwmIndW is op=0xD8 & RwnIndWP & RwmIndW & ExtCountDec {
 	Move(RwnIndWP, RwmIndW);
 }
 
 # MOV [Rwn], [Rwm+]
-:mov RwnIndW, RwmIndWP is ExtCountDec & op=0xE8 & RwnIndW & RwmIndWP {
+:mov RwnIndW, RwmIndWP is op=0xE8 & RwnIndW & RwmIndWP & ExtCountDec {
 	Move(RwnIndW, RwmIndWP);
 }
 
 # MOV Rwn, [Rwm+#data16]
-:mov rwn, RwmIndWOff is ExtCountDec & (op=0xD4 & rwn) ... & RwmIndWOff {
+:mov rwn, RwmIndWOff is (op=0xD4 & rwn) ... & RwmIndWOff & ExtCountDec {
 	Move(rwn, RwmIndWOff);
 }
 
 # MOV [Rwm+#data16], Rwn
-:mov RwmIndWOff, rwn is ExtCountDec & (op=0xC4 & rwn) ... & RwmIndWOff {
+:mov RwmIndWOff, rwn is (op=0xC4 & rwn) ... & RwmIndWOff & ExtCountDec {
 	Move(RwmIndWOff, rwn);
 }
 
@@ -1285,47 +1284,47 @@ macro Move(a, b) {
 }
 
 # MOVB Rwn, [Rwm]
-:movb rbn, RwmIndB is ExtCountDec & op=0xA9 & rbn & RwmIndB {
+:movb rbn, RwmIndB is op=0xA9 & rbn & RwmIndB & ExtCountDec {
 	Move(rbn, RwmIndB);
 }
 
 # MOVB Rwn, [Rwm+]
-:movb rbn, RwmIndBP is ExtCountDec & op=0x99 & rbn & RwmIndBP {
+:movb rbn, RwmIndBP is op=0x99 & rbn & RwmIndBP & ExtCountDec {
 	Move(rbn, RwmIndBP);
 }
 
 # MOVB [Rwm], Rbn
-:movb RwmIndB, rbn is ExtCountDec & op=0xB9 & rbn & RwmIndB {
+:movb RwmIndB, rbn is op=0xB9 & rbn & RwmIndB & ExtCountDec {
 	Move(RwmIndB, rbn);
 }
 
 # MOVB [-Rwm], Rbn
-:movb RwmIndBM, rbn is ExtCountDec & op=0x89 & rbn & RwmIndBM {
+:movb RwmIndBM, rbn is op=0x89 & rbn & RwmIndBM & ExtCountDec {
 	Move(RwmIndBM, rbn);
 }
 
 # MOVB [Rwn], [Rwm]
-:movb RwnIndB, RwmIndB is ExtCountDec & op=0xC9 & RwnIndB & RwmIndB {
+:movb RwnIndB, RwmIndB is op=0xC9 & RwnIndB & RwmIndB & ExtCountDec {
 	Move(RwnIndB, RwmIndB);
 }
 
 # MOVB [Rwn+], [Rwm]
-:movb RwnIndBP, RwmIndB is ExtCountDec & op=0xD9 & RwnIndBP & RwmIndB {
+:movb RwnIndBP, RwmIndB is op=0xD9 & RwnIndBP & RwmIndB & ExtCountDec {
 	Move(RwnIndBP, RwmIndB);
 }
 
 # MOVB [Rwn], [Rwm+]
-:movb RwnIndB, RwmIndBP is ExtCountDec & op=0xE9 & RwnIndB & RwmIndBP {
+:movb RwnIndB, RwmIndBP is op=0xE9 & RwnIndB & RwmIndBP & ExtCountDec {
 	Move(RwnIndB, RwmIndBP);
 }
 
 # MOVB Rbn, [Rwm+#data16]
-:movb rbn, RwmIndBOff is ExtCountDec & (op=0xF4 & rbn) ... & RwmIndBOff {
+:movb rbn, RwmIndBOff is (op=0xF4 & rbn) ... & RwmIndBOff & ExtCountDec {
 	Move(rbn, RwmIndBOff);
 }
 
 # MOVB [Rwm+#data16], Rbn
-:movb RwmIndBOff, rbn is ExtCountDec & (op=0xE4 & rbn) ... & RwmIndBOff {
+:movb RwmIndBOff, rbn is (op=0xE4 & rbn) ... & RwmIndBOff & ExtCountDec {
 	Move(RwmIndBOff, rbn);
 }
 

@@ -16,6 +16,8 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressIterator;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.listing.StackFrame;
+import ghidra.program.model.listing.Variable;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.symbol.Reference;
 
@@ -23,9 +25,10 @@ public class CaptureHeadlessCase extends HeadlessScript {
     @Override
     protected void run() throws Exception {
         String[] args = getScriptArgs();
-        if (args.length != 3) {
+        if (args.length < 3 || args.length > 4) {
             throw new IllegalArgumentException(
-                "usage: CaptureHeadlessCase.java <case.properties> <actual.disasm> <decompiled.txt>");
+                "usage: CaptureHeadlessCase.java <case.properties> <actual.disasm> " +
+                "<decompiled.txt> [actual.stack]");
         }
         if (analysisTimeoutOccurred()) {
             throw new IllegalStateException("Headless analysis timed out");
@@ -38,6 +41,10 @@ public class CaptureHeadlessCase extends HeadlessScript {
         Files.writeString(Path.of(args[1]), captureListing(), StandardCharsets.UTF_8);
         String decompiled = captureDecompilations(properties.getProperty("decompile", ""));
         Files.writeString(Path.of(args[2]), decompiled, StandardCharsets.UTF_8);
+        if (args.length == 4) {
+            String stack = captureStackFrames(properties.getProperty("stack", ""));
+            Files.writeString(Path.of(args[3]), stack, StandardCharsets.UTF_8);
+        }
         println(decompiled);
     }
 
@@ -106,6 +113,28 @@ public class CaptureHeadlessCase extends HeadlessScript {
             decompiler.dispose();
         }
         return output.toString().replaceAll("(?m)[ \\t]+$", "").stripTrailing() + '\n';
+    }
+
+    private String captureStackFrames(String requested) throws Exception {
+        StringBuilder output = new StringBuilder();
+        for (String value : requested.split(",")) {
+            Address address = toAddr(value.trim());
+            Function function = getFunctionAt(address);
+            if (function == null) throw new IllegalStateException("Missing function at " + address);
+			StackFrame frame = function.getStackFrame();
+			output.append(String.format("%s\tframe=%d\tlocals=%d\tparams=%d%n",
+				address, frame.getFrameSize(), frame.getLocalSize(), frame.getParameterSize()));
+			Variable[] variables = frame.getStackVariables();
+            Arrays.sort(variables, Comparator
+                .comparingInt(Variable::getStackOffset)
+                .thenComparingInt(Variable::getLength));
+            for (Variable variable : variables) {
+                output.append(formatAddress(address))
+                    .append("\toffset=").append(variable.getStackOffset())
+                    .append("\tsize=").append(variable.getLength()).append('\n');
+            }
+        }
+        return output.toString();
     }
 
     private static String formatAddress(Address address) {
