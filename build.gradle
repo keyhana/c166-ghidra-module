@@ -63,6 +63,18 @@ buildExtension.doFirst {
 	delete 'data/languages/c166.sla'
 }
 
+tasks.register('compileGhidraScripts', JavaCompile) {
+	group = 'verification'
+	description = 'Compiles extension scripts against the configured Ghidra installation.'
+	source fileTree('ghidra_scripts') { include '**/*.java' }
+	classpath = sourceSets.main.compileClasspath
+	destinationDirectory = layout.buildDirectory.dir('classes/ghidraScripts')
+	sourceCompatibility = compileJava.sourceCompatibility
+	targetCompatibility = compileJava.targetCompatibility
+}
+
+buildExtension.dependsOn 'compileGhidraScripts'
+
 def headlessRoot = layout.buildDirectory.dir('headless-test')
 def headlessModule = headlessRoot.map { it.dir('module') }
 
