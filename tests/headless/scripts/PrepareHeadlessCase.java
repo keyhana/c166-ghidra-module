@@ -6,12 +6,14 @@ import java.math.BigInteger;
 import java.util.Properties;
 
 import ghidra.app.util.headless.HeadlessScript;
+import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.ArrayDataType;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.Undefined1DataType;
 import ghidra.program.model.data.Undefined2DataType;
 import ghidra.program.model.lang.Register;
+import ghidrainfineon.C166AddressAnalyzer;
 
 public class PrepareHeadlessCase extends HeadlessScript {
     @Override
@@ -34,6 +36,14 @@ public class PrepareHeadlessCase extends HeadlessScript {
             if (getFunctionAt(address) == null && createFunction(address, null) == null) {
                 throw new IllegalStateException("Cannot create function at " + address);
             }
+        }
+        if (Boolean.parseBoolean(properties.getProperty("c166AddressAnalysis", "false"))) {
+            C166AddressAnalyzer analyzer = new C166AddressAnalyzer();
+            if (!analyzer.canAnalyze(currentProgram)) {
+                throw new IllegalStateException("C166AddressAnalyzer rejected test program");
+            }
+            analyzer.analyzeSet(currentProgram,
+                new AddressSet(currentProgram.getMemory()), monitor);
         }
     }
 

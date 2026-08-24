@@ -73,6 +73,11 @@ For best results, set DPP register values in Ghidra:
 2. `Right-click` → `Set Register Values`
 3. Set `DPP0`-`DPP3` to appropriate page values
 
+DPP context is user-controlled. The module does not infer DPP values from instructions and does
+not apply the CPU reset defaults (`DPP0=0`, `DPP1=1`, `DPP2=2`, `DPP3=3`) when register values
+have not been set manually. Unset DPP context remains unknown, so set each required value over
+the address range where it is valid.
+
 ## Calling Conventions
 
 The module ships two calling conventions; pick per function via the
