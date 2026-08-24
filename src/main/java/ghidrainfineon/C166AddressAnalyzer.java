@@ -42,7 +42,6 @@ import ghidra.util.task.TaskMonitor;
 
 /**
  * Analyzer that applies C166 DPP/EXTP/EXTS address translation during constant propagation.
- * 
  * Overrides evaluateConstant to translate 16-bit addresses to 24-bit physical addresses.
  * The propagator handles operand detection and reference creation.
  */
@@ -57,7 +56,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			ConstantPropagationAnalyzer.claimProcessor(name);
 		}
 	}
-	private static final long PAGE_MASK = 0x3fffl;
+	private static final long PAGE_MASK = 0x3fffL;
 
 	private final Register[] dppRegisters = new Register[4];
 	private final Register[] gpRegisters = new Register[16];  // r0-r15
@@ -153,28 +152,8 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			this.ramSpace = dataSpace != null ? dataSpace : factory.getDefaultAddressSpace();
 		}
 
-		@Override
-		public boolean evaluateDestination(VarnodeContext context, Instruction instr) {
-			ProgramContext progCtx = program.getProgramContext();
-			for (int i = 0; i < 4; i++) {
-				Register dpp = dppRegisters[i];
-				if (dpp == null) continue;
-				BigInteger val = context.getValue(dpp, false);
-				if (val != null) {
-					try {
-						progCtx.setValue(dpp, instr.getAddress(),
-							instr.getAddress(), val);
-					} catch (ContextChangeException e) {
-						// ignore - can't set context in delay slot / flow override areas
-					}
-				}
-			}
-			return false;
-		}
-
 		/**
 		 * Override evaluateConstant to translate 16-bit addresses to 24-bit using DPP/EXTP/EXTS.
-		 *
 		 * The propagator uses our returned address as the reference target,
 		 * but uses the ORIGINAL offset for operand detection - so operands are found correctly!
 		 */
@@ -267,7 +246,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 				return null;
 			}
 
-			BigInteger dppValue = context.getValue(dpp, false);
+			BigInteger dppValue = progCtx.getValue(dpp, instr.getAddress(), false);
 			if (dppValue == null) {
 				return null;
 			}
@@ -297,7 +276,6 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 
 		/**
 		 * Get the EXTP/EXTS value, checking if it's register-based or immediate.
-		 *
 		 * Mode is decided by the dedicated 1-bit context register
 		 * (ExtpRegMode/ExtsRegMode). The earlier sentinel-based scheme
 		 * (regIdx == 0xF) collided with the legitimate register index for
