@@ -19,6 +19,8 @@
 package ghidrainfineon;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import ghidra.app.plugin.core.analysis.ConstantPropagationAnalyzer;
@@ -32,7 +34,9 @@ import ghidra.program.model.address.AddressSetView;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.lang.Register;
+import ghidra.program.model.lang.RegisterValue;
 import ghidra.program.model.listing.*;
+import ghidra.program.model.scalar.Scalar;
 import ghidra.program.model.symbol.RefType;
 import ghidra.program.util.ContextEvaluator;
 import ghidra.program.util.SymbolicPropogator;
@@ -59,15 +63,12 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 	private static final long PAGE_MASK = 0x3fffL;
 
 	private final Register[] dppRegisters = new Register[4];
-	private final Register[] gpRegisters = new Register[16];  // r0-r15
 	private Register extp;
 	private Register exts;
 	private Register extpEn;
 	private Register extsEn;
-	private Register extpReg;
-	private Register extsReg;
-	private Register extpRegMode;
-	private Register extsRegMode;
+	private Register extpValue;
+	private Register extsValue;
 
 	public C166AddressAnalyzer() {
 		super(PROCESSOR_NAME);
@@ -126,23 +127,20 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 		for (int i = 0; i < dppRegisters.length; i++) {
 			dppRegisters[i] = program.getRegister("DPP" + i);
 		}
-		for (int i = 0; i < gpRegisters.length; i++) {
-			gpRegisters[i] = program.getRegister("r" + i);
-		}
 		extp = program.getRegister("Extp");
 		exts = program.getRegister("Exts");
 		extpEn = program.getRegister("ExtpEn");
 		extsEn = program.getRegister("ExtsEn");
-		extpReg = program.getRegister("ExtpReg");
-		extsReg = program.getRegister("ExtsReg");
-		extpRegMode = program.getRegister("ExtpRegMode");
-		extsRegMode = program.getRegister("ExtsRegMode");
+		extpValue = program.getRegister("ExtpValue");
+		extsValue = program.getRegister("ExtsValue");
 	}
 
 	private class C166ContextEvaluator extends ConstantPropagationContextEvaluator {
 
 		private final Program program;
 		private final AddressSpace ramSpace;
+		private final Map<Address, Long> extpLatches = new HashMap<>();
+		private final Map<Address, Long> extsLatches = new HashMap<>();
 
 		C166ContextEvaluator(Program program, TaskMonitor monitor) {
 			super(monitor);
@@ -150,6 +148,49 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			AddressFactory factory = program.getAddressFactory();
 			AddressSpace dataSpace = factory.getAddressSpace("ram");
 			this.ramSpace = dataSpace != null ? dataSpace : factory.getDefaultAddressSpace();
+		}
+
+		@Override
+		public boolean evaluateContext(VarnodeContext context, Instruction instr) {
+			String mnemonic = instr.getMnemonicString().toLowerCase();
+			boolean page = mnemonic.equals("extp") || mnemonic.equals("extpr");
+			boolean segment = mnemonic.equals("exts") || mnemonic.equals("extsr");
+			if (!page && !segment) return false;
+
+			Register source = null;
+			Scalar count = null;
+			for (Object object : instr.getOpObjects(0)) {
+				if (object instanceof Register register) {
+					source = register;
+				}
+				else if (object instanceof Scalar scalar) {
+					count = scalar;
+				}
+			}
+			if (source == null) return false;
+			BigInteger value = context.getValue(source, false);
+			if (value == null) return false;
+
+			Instruction first = instr.getNext();
+			if (count == null || first == null) return false;
+			Instruction last = first;
+			Map<Address, Long> latches = page ? extpLatches : extsLatches;
+			latches.put(first.getAddress(), value.longValue());
+			for (long i = 1; i < count.getUnsignedValue(); i++) {
+				last = last.getNext();
+				if (last == null) return false;
+				latches.put(last.getAddress(), value.longValue());
+			}
+
+			Register target = page ? extpValue : extsValue;
+			try {
+				program.getProgramContext().setValue(target, first.getAddress(),
+					last.getAddress(), value);
+			}
+			catch (ContextChangeException e) {
+				throw new IllegalStateException("Cannot latch " + target + " over extension window", e);
+			}
+			return false;
 		}
 
 		/**
@@ -202,7 +243,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			
 			// Check for EXTS override first (segment-based, uses full 16-bit offset)
 			if (isContextEnabled(progCtx, instrAddr, extsEn)) {
-				Long segment = getExtValue(context, progCtx, instrAddr, exts, extsReg, extsRegMode);
+				Long segment = getExtValue(progCtx, instrAddr, extsValue, exts);
 				if (segment != null) {
 					segment = segment & 0xFFL;
 					long resolved = (segment << 16) | (raw & 0xFFFFL);
@@ -219,7 +260,7 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			
 			// Check for EXTP override (page-based, uses 14-bit offset)
 			if (isContextEnabled(progCtx, instrAddr, extpEn)) {
-				Long page = getExtValue(context, progCtx, instrAddr, extp, extpReg, extpRegMode);
+				Long page = getExtValue(progCtx, instrAddr, extpValue, extp);
 				if (page != null) {
 					page = page & 0x3FFL;
 					long innerOffset = raw & PAGE_MASK;
@@ -274,40 +315,21 @@ public class C166AddressAnalyzer extends ConstantPropagationAnalyzer {
 			return value != null && !value.equals(BigInteger.ZERO);
 		}
 
-		/**
-		 * Get the EXTP/EXTS value, checking if it's register-based or immediate.
-		 * Mode is decided by the dedicated 1-bit context register
-		 * (ExtpRegMode/ExtsRegMode). The earlier sentinel-based scheme
-		 * (regIdx == 0xF) collided with the legitimate register index for
-		 * r15.
-		 */
-		private Long getExtValue(VarnodeContext varnodeCtx, ProgramContext progCtx, Address addr,
-				Register immReg, Register regIdxReg, Register regModeReg) {
-			if (regModeReg != null) {
-				BigInteger regMode = progCtx.getValue(regModeReg, addr, false);
-				if (regMode != null && regMode.equals(BigInteger.ONE)) {
-					if (regIdxReg != null) {
-						BigInteger regIdx = progCtx.getValue(regIdxReg, addr, false);
-						if (regIdx != null) {
-							int idx = regIdx.intValue() & 0xF;
-							if (idx < gpRegisters.length) {
-								Register gpReg = gpRegisters[idx];
-								if (gpReg != null) {
-									BigInteger gpValue = varnodeCtx.getValue(gpReg, false);
-									if (gpValue != null) {
-										return gpValue.longValue();
-									}
-								}
-							}
-						}
-					}
-					return null;  // Register-based but value unknown
+		/** Get the EXTP/EXTS value latched in ProgramContext. */
+		private Long getExtValue(ProgramContext progCtx, Address addr, Register latchReg,
+				Register valueReg) {
+			Long flowValue = (latchReg == extpValue ? extpLatches : extsLatches).get(addr);
+			if (flowValue != null) {
+				return flowValue;
+			}
+			if (latchReg != null) {
+				RegisterValue latchedValue = progCtx.getNonDefaultValue(latchReg, addr);
+				if (latchedValue != null && latchedValue.hasValue()) {
+					return latchedValue.getUnsignedValue().longValue();
 				}
 			}
-
-			// Immediate mode: use the context register value from ProgramContext
-			if (immReg != null) {
-				BigInteger immValue = progCtx.getValue(immReg, addr, false);
+			if (valueReg != null) {
+				BigInteger immValue = progCtx.getValue(valueReg, addr, false);
 				if (immValue != null) {
 					return immValue.longValue();
 				}
