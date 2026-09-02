@@ -1,0 +1,25 @@
+===== 000000 =====
+
+void RESET_VECTOR(void)
+
+{
+  short sVar1;
+  short sVar2;
+  short sVar3;
+  int iVar4;
+  ushort in_r1;
+  ushort in_r3;
+  undefined2 uVar5;
+  ushort in_IDX0;
+
+  sVar1 = *(short *)(uint3)in_r3;
+  sVar2 = *(short *)(uint3)(in_r3 + 2);
+  sVar3 = *(short *)(uint3)(in_r3 + 4);
+  *(short *)(uint3)(in_IDX0 + 6) = *(short *)(uint3)(in_IDX0 + 4);
+  iVar4 = (int)*(short *)(uint3)in_IDX0 * (int)sVar1 +
+          (int)*(short *)(uint3)(in_IDX0 + 2) * (int)sVar2 +
+          (int)*(short *)(uint3)(in_IDX0 + 4) * (int)sVar3;
+  uVar5 = CoSaturate((short)((uint)iVar4 >> 0x10),(short)iVar4);
+  *(undefined2 *)(uint3)in_r1 = uVar5;
+  return;
+}

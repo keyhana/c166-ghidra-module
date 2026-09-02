@@ -11,6 +11,7 @@ A **Ghidra** extension for disassembling and decompiling **Infineon C166/C167** 
 - **DPP Address Translation** — Automatic resolution of 16-bit addresses to 24-bit physical addresses
 - **EXTP/EXTS Support** — Extended page and segment override handling
 - **Switch Table Analysis** — Automatic switch detection
+- **C166S v2 MAC Unit** — the multiply-accumulate extension (`CoMUL`, `CoMAC`, `CoSTORE`, `CoMOV`, shifts, `REPEAT` prefix), its addressing modes and the MAC registers
 
 ### Included Scripts
 
@@ -99,13 +100,24 @@ parameters correctly.
 
 ## Supported Processors
 
+The module covers the Infineon C166 instruction set including the C166S v2 MAC extension.
+Language variants shipped:
+
 - Infineon C167CR
 - Infineon C167CS
+
+The MAC unit is the one instruction-set addition of the second-generation cores. Infineon
+documents it for C166S v2, STMicroelectronics for the ST10 DSP derivatives; the lineages are
+separate but share the opcode assignment. The encoding here follows the ST10 family programming
+manual and is verified against ST10F276E firmware. Parts that carry the unit can be added as
+further variants in `c166.ldefs` when device-specific SFR symbols are needed.
 
 ## Known Limitations
 
 - Manually overridden switches show case labels as addresses (e.g., `case 0x12345:`) instead of indices
 - Nested switches may require manual script invocation for each `jmpi`
+- Opcodes 83/93/A3/B3/C3/D3 no longer fail to decode, so data misread as code now yields plausible MAC instructions instead of an error, on every variant including C167CR/C167CS
+- MAC accumulator p-code models `MAH:MAL` only: the 8-bit accumulator extension, saturation, MP-mode product shift, the `MSW` flags and the hardware `REPEAT` loop are decoded but not executed
 
 ## Project Structure
 
