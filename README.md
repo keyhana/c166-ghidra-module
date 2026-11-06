@@ -45,6 +45,8 @@ The module attempts to resolve these translations automatically, though manual i
 
 ### Building from Source
 
+Use Ghidra 12.2 and JDK 25 or newer. CI uses JDK 25.
+
 ```bash
 # Set Ghidra installation path
 export GHIDRA_INSTALL_DIR=/path/to/ghidra

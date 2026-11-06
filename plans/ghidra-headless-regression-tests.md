@@ -2,7 +2,7 @@
 
 ## Summary
 
-Add `./gradlew headlessTest` command. Each case supplies raw binary, metadata, exact disassembly golden file. Headless Ghidra imports/analyzes binary, compares canonical whole-image listing, prints/saves requested decompilations. Same command runs in GitHub Actions with Ghidra 12.1.2.
+Add `./gradlew headlessTest` command. Each case supplies raw binary, metadata, exact disassembly golden file. Headless Ghidra imports/analyzes binary, compares canonical whole-image listing, prints/saves requested decompilations. Same command runs in GitHub Actions with Ghidra 12.2.
 
 ## Implementation
 
@@ -29,7 +29,7 @@ Add `./gradlew headlessTest` command. Each case supplies raw binary, metadata, e
 ## CI and Interfaces
 
 - Public command: `./gradlew headlessTest`.
-- Existing workflow keeps pinned Ghidra 12.1.2/JDK 21, then runs `headlessTest` before `buildExtension`.
+- Existing workflow uses Ghidra 12.2/JDK 25, then runs `headlessTest` before `buildExtension`.
 - Upload `build/headless-test/results/` on success or failure, preserving actual disassembly, decompiled text, and logs.
 
 ## Test Plan
@@ -46,4 +46,4 @@ Add `./gradlew headlessTest` command. Each case supplies raw binary, metadata, e
 - User supplies at least one small binary case plus expected disassembly before CI can pass.
 - Whole fixture is intentional regression surface, including non-code bytes.
 - Raw fixtures are safe and redistributable; proprietary ECU images remain uncommitted.
-- Ghidra 12.1.2 output defines v1 baseline; version upgrades require deliberate golden review.
+- Ghidra 12.2 output defines the reviewed baseline; version upgrades require deliberate golden review.
