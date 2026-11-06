@@ -250,7 +250,7 @@ SetExtp: page, SetAtomic is rwm=0 & SetAtomic; page [ ExtpEn = 1; globalset(inst
 SetExtsInd: rwm, SetAtomic is rwm & SetAtomic [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=0; globalset(inst_start, Exts); ] { local NOP:1 = 0; }
 SetExts: seg, SetAtomic is rwm = 0 & SetAtomic; seg [ ExtsEn = 1; globalset(inst_start, ExtsEn); Exts=seg; globalset(inst_start, Exts); ] { local NOP:1 = 0; }
 ExtCountDec: is Counter=0 [ ExtrEn=0; globalset(inst_start, ExtrEn); ExtpEn=0; globalset(inst_start, ExtpEn); ExtsEn=0; globalset(inst_start, ExtsEn); Extp=0; globalset(inst_start, Extp); Exts=0; globalset(inst_start, Exts); ] { local NOP:1 = 0; }
-ExtCountDec: is Counter=1 [ Counter=0; globalset(inst_next, Counter); ExtrEn=0; globalset(inst_next, ExtrEn); ExtpEn=0; globalset(inst_next, ExtpEn); ExtsEn=0; globalset(inst_next, ExtsEn); Extp=0; globalset(inst_next, Extp); Exts=0; globalset(inst_next, Exts); ] { local NOP:1 = 0; }
+ExtCountDec: is Counter=1 [ Counter=0; globalset(inst_next, Counter); ExtpEn=0; globalset(inst_next, ExtpEn); ExtsEn=0; globalset(inst_next, ExtsEn); Extp=0; globalset(inst_next, Extp); Exts=0; globalset(inst_next, Exts); ] { local NOP:1 = 0; }
 ExtCountDec: is Counter!=0 & Counter!=1 [ Counter = Counter - 1; globalset(inst_start, Counter);] { local NOP:1 = 0; }
 
 LongMemAddrW: mem is mem { local tmp:3 = GetPagedOffset(mem:2); export *:2tmp; }
