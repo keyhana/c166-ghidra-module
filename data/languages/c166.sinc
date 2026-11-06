@@ -1847,3 +1847,437 @@ define pcodeop __service_watchdog;
 :trap trapAddr is ExtCountDec & op=0x9B & trapAddr {
 	call trapAddr;
 }
+
+
+# ===========================================================================
+# MAC unit (C166S v2 / ST10 multiply-accumulate coprocessor)
+#
+# The six opcodes 83/93/A3/B3/C3/D3 are listed as undefined in the base C166
+# manual and are used by the MAC unit.  Every MAC instruction is four bytes:
+#
+#   b0  opcode      83 Rwn,[Rwm@]  93 [IDXi@],[Rwm@]  A3 Rwn,Rwm
+#                   B3 CoSTORE [Rwm@],CoReg  C3 CoSTORE Rwm,CoReg  D3 CoMOV
+#   b1  n:m         n = Rwn, or the 4-bit IDX addressing mode; m = Rwm
+#   b2  function    operation selector, or the CoReg address (wwww:w000)
+#   b3  rrrrr:qqq   repeat count (or 5-bit shift immediate) : Rwm pointer mode
+#
+# Encoding follows the ST10 family programming manual, "MAC instruction set".
+#
+# Modelled: operand fetch, pointer post-modification, the CoMACM parallel
+# data move, transfers, and 32-bit accumulator arithmetic.
+# Not modelled: the 8-bit accumulator extension (ACC is the 32-bit pair
+# MAH:MAL), saturation, MP-mode product shift, the MSW flags, and the
+# hardware repeat loop - the repeat count is decoded and displayed, but the
+# instruction body is emitted once.
+# ===========================================================================
+
+define token mac32 (32)
+	mac_op     = (0,7)
+	mac_m      = (8,11)
+	mac_n      = (12,15)
+	mac_x      = (12,15)
+	mac_fn     = (16,23)
+	mac_fn_rnd = (16,16)
+	mac_fn_grp = (17,17)
+	mac_fn_x2  = (18,18)
+	mac_fn_op  = (19,21)
+	mac_creg   = (19,23)
+	mac_fn_sgn = (22,23)
+	mac_q      = (24,26)
+	mac_rep    = (27,31)
+	mac_imm5   = (27,31)
+;
+
+attach variables [ mac_n mac_m ] [ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 ];
+
+# MAC registers at their (E)SFR addresses.  MAS is a saturated read-only view
+# of the accumulator and has no address of its own.
+define register offset=0xF000 size=2 [ QX0 QX1 QR0 QR1 ];
+define register offset=0xFE5C size=2 [ MAL MAH ];
+define register offset=0xFF08 size=2 [ IDX0 IDX1 ];
+define register offset=0xFFDA size=2 [ MRW MCW MSW ];
+define register offset=0x5C   size=2 [ MAS ];
+
+define pcodeop CoSaturate;   # saturated 16-bit view of the accumulator (MAS)
+define pcodeop CoCompare;    # CoCMP flag update
+define pcodeop CoRepeat;     # hardware repeat prefix; iteration is not modelled
+
+macro CoAccSet(val) {
+	local hi:4 = val >> 16;
+	MAL = val:2;
+	MAH = hi:2;
+}
+
+# Rounding adds 0x8000 and clears MAL: keep is 0 for rnd, 0xffff otherwise.
+macro CoAccSetR(val, keep) {
+	local hi:4 = val >> 16;
+	MAL = (val:2) & keep;
+	MAH = hi:2;
+}
+
+# --- [IDXi@] pointer operand, encoded in the n field -----------------------
+
+MacIdx: "[IDX0]"        is mac_x=0x1 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; }
+MacIdx: "[IDX0+]"       is mac_x=0x2 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; IDX0 = IDX0 + 2; }
+MacIdx: "[IDX0-]"       is mac_x=0x3 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; IDX0 = IDX0 - 2; }
+MacIdx: "[IDX0+QX0]"   is mac_x=0x4 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; IDX0 = IDX0 + QX0; }
+MacIdx: "[IDX0-QX0]"   is mac_x=0x5 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; IDX0 = IDX0 - QX0; }
+MacIdx: "[IDX0+QX1]"   is mac_x=0x6 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; IDX0 = IDX0 + QX1; }
+MacIdx: "[IDX0-QX1]"   is mac_x=0x7 { local a:3 = c166_reg_offset_addr(IDX0, 0:2); export *:2 a; IDX0 = IDX0 - QX1; }
+MacIdx: "[IDX1]"        is mac_x=0x9 { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; }
+MacIdx: "[IDX1+]"       is mac_x=0xA { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; IDX1 = IDX1 + 2; }
+MacIdx: "[IDX1-]"       is mac_x=0xB { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; IDX1 = IDX1 - 2; }
+MacIdx: "[IDX1+QX0]"   is mac_x=0xC { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; IDX1 = IDX1 + QX0; }
+MacIdx: "[IDX1-QX0]"   is mac_x=0xD { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; IDX1 = IDX1 - QX0; }
+MacIdx: "[IDX1+QX1]"   is mac_x=0xE { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; IDX1 = IDX1 + QX1; }
+MacIdx: "[IDX1-QX1]"   is mac_x=0xF { local a:3 = c166_reg_offset_addr(IDX1, 0:2); export *:2 a; IDX1 = IDX1 - QX1; }
+
+# Which IDX register the operand above used, so that CoMACM can address the
+# post-modified pointer for its parallel data move.
+MacIdxReg: is mac_x < 0x8  { export IDX0; }
+MacIdxReg: is mac_x >= 0x8 { export IDX1; }
+
+# --- [Rwm@] pointer operand, encoded in the q field ------------------------
+
+MacRwInd: [mac_m]         is mac_q=1 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; }
+MacRwInd: [mac_m^"+"]     is mac_q=2 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; mac_m = mac_m + 2; }
+MacRwInd: [mac_m^"-"]     is mac_q=3 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; mac_m = mac_m - 2; }
+MacRwInd: [mac_m^"+QR0"] is mac_q=4 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; mac_m = mac_m + QR0; }
+MacRwInd: [mac_m^"-QR0"] is mac_q=5 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; mac_m = mac_m - QR0; }
+MacRwInd: [mac_m^"+QR1"] is mac_q=6 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; mac_m = mac_m + QR1; }
+MacRwInd: [mac_m^"-QR1"] is mac_q=7 & mac_m { local a:3 = c166_reg_offset_addr(mac_m, 0:2); export *:2 a; mac_m = mac_m - QR1; }
+
+# --- source operands shared by the 83 / 93 / A3 forms ----------------------
+#
+# The three opcodes only agree on the bits 10xx0011, which is what the
+# combined MacOp1/MacOp2 pattern reduces to - and that also covers B3
+# (CoSTORE).  Every constructor built on these tables therefore repeats the
+# opcode list itself, so B3 is not swallowed here.
+
+MacOp1: mac_n  is mac_op=0x83 & mac_n           { export mac_n; }
+MacOp1: MacIdx is mac_op=0x93 & MacIdx          { export MacIdx; }
+MacOp1: mac_n  is mac_op=0xA3 & mac_q=0 & mac_n { export mac_n; }
+
+MacOp2: MacRwInd is mac_op=0x83 & MacRwInd        { export MacRwInd; }
+MacOp2: MacRwInd is mac_op=0x93 & MacRwInd        { export MacRwInd; }
+MacOp2: mac_m    is mac_op=0xA3 & mac_q=0 & mac_m { export mac_m; }
+
+# --- repeat prefix (rrrrr); 1F repeats MRW times ---------------------------
+
+MacRep:                is mac_rep=0x00 { local NOP:1 = 0; }
+MacRep: " repeat MRW"  is mac_rep=0x1F { CoRepeat(MRW); }
+MacRep: " repeat "^cnt is mac_rep [ cnt = mac_rep + 1; ] { local c:2 = cnt; CoRepeat(c); }
+
+# --- multiply operand signedness (function code bits 7:6) ------------------
+
+MacSgnSfx: "u"  is mac_fn_sgn=0 { local NOP:1 = 0; }
+MacSgnSfx: "su" is mac_fn_sgn=1 { local NOP:1 = 0; }
+MacSgnSfx: "us" is mac_fn_sgn=2 { local NOP:1 = 0; }
+MacSgnSfx:      is mac_fn_sgn=3 { local NOP:1 = 0; }
+
+MacProd: MacOp1^","^MacOp2 is mac_fn_sgn=0 & MacOp1 & MacOp2 { local p:4 = zext(MacOp1) * zext(MacOp2); export p; }
+MacProd: MacOp1^","^MacOp2 is mac_fn_sgn=1 & MacOp1 & MacOp2 { local p:4 = sext(MacOp1) * zext(MacOp2); export p; }
+MacProd: MacOp1^","^MacOp2 is mac_fn_sgn=2 & MacOp1 & MacOp2 { local p:4 = zext(MacOp1) * sext(MacOp2); export p; }
+MacProd: MacOp1^","^MacOp2 is mac_fn_sgn=3 & MacOp1 & MacOp2 { local p:4 = sext(MacOp1) * sext(MacOp2); export p; }
+
+# CoMACM exists only in the 93 form: besides the product it copies the word
+# read through IDXi to the location the post-modified IDXi now points at.
+MacProdM: MacIdx^","^MacRwInd is mac_op=0x93 & mac_fn_sgn=0 & MacIdx & MacRwInd & MacIdxReg {
+	local v:2 = MacIdx;
+	local p:4 = zext(v) * zext(MacRwInd);
+	local d:3 = c166_reg_offset_addr(MacIdxReg, 0:2);
+	*:2 d = v;
+	export p;
+}
+MacProdM: MacIdx^","^MacRwInd is mac_op=0x93 & mac_fn_sgn=1 & MacIdx & MacRwInd & MacIdxReg {
+	local v:2 = MacIdx;
+	local p:4 = sext(v) * zext(MacRwInd);
+	local d:3 = c166_reg_offset_addr(MacIdxReg, 0:2);
+	*:2 d = v;
+	export p;
+}
+MacProdM: MacIdx^","^MacRwInd is mac_op=0x93 & mac_fn_sgn=2 & MacIdx & MacRwInd & MacIdxReg {
+	local v:2 = MacIdx;
+	local p:4 = zext(v) * sext(MacRwInd);
+	local d:3 = c166_reg_offset_addr(MacIdxReg, 0:2);
+	*:2 d = v;
+	export p;
+}
+MacProdM: MacIdx^","^MacRwInd is mac_op=0x93 & mac_fn_sgn=3 & MacIdx & MacRwInd & MacIdxReg {
+	local v:2 = MacIdx;
+	local p:4 = sext(v) * sext(MacRwInd);
+	local d:3 = c166_reg_offset_addr(MacIdxReg, 0:2);
+	*:2 d = v;
+	export p;
+}
+
+# --- optional rounding (function code bit 0) -------------------------------
+
+MacRnd: ",rnd" is mac_fn_rnd=1 { export 0x8000:4; }
+MacRnd:        is mac_fn_rnd=0 { export 0x0:4; }
+
+MacRndMask: is mac_fn_rnd=1 { export 0x0:2; }
+MacRndMask: is mac_fn_rnd=0 { export 0xFFFF:2; }
+
+# --- CoReg operand of CoSTORE ----------------------------------------------
+
+MacCoReg: "MSW" is mac_creg=0x00 { export MSW; }
+MacCoReg: "MAH" is mac_creg=0x01 { export MAH; }
+MacCoReg: "MAS" is mac_creg=0x02 { MAS = CoSaturate(MAH, MAL); export MAS; }
+MacCoReg: "MAL" is mac_creg=0x04 { export MAL; }
+MacCoReg: "MCW" is mac_creg=0x05 { export MCW; }
+MacCoReg: "MRW" is mac_creg=0x06 { export MRW; }
+
+# --- multiply and multiply-accumulate --------------------------------------
+
+# CoMUL[u|us|su] op1, op2 [,rnd]
+:comul^MacSgnSfx MacProd^MacRnd^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=0 & MacSgnSfx & MacProd & MacRnd & MacRndMask & MacRep {
+	local acc:4 = MacProd + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMUL[u|us|su]- op1, op2 [,rnd]
+:comul^MacSgnSfx^"-" MacProd^MacRnd^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=1 & MacSgnSfx & MacProd & MacRnd & MacRndMask & MacRep {
+	local acc:4 = -MacProd + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMAC[u|us|su] op1, op2 [,rnd]
+:comac^MacSgnSfx MacProd^MacRnd^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=2 & MacSgnSfx & MacProd & MacRnd & MacRndMask & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc + MacProd + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMAC[u|us|su]- op1, op2 [,rnd]
+:comac^MacSgnSfx^"-" MacProd^MacRnd^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=4 & MacSgnSfx & MacProd & MacRnd & MacRndMask & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc - MacProd + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMACR[u|us|su] op1, op2 [,rnd] - reverse accumulate, ACC = product - ACC
+:comacr^MacSgnSfx MacProd^MacRnd^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=6 & MacSgnSfx & MacProd & MacRnd & MacRndMask & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = MacProd - acc + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMACM[u|us|su] - MAC with parallel data move
+:comacm^MacSgnSfx MacProdM^MacRnd^MacRep is ExtCountDec & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=3 & MacSgnSfx & MacProdM & MacRnd & MacRndMask & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc + MacProdM + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMACM[u|us|su]-
+:comacm^MacSgnSfx^"-" MacProdM^MacRnd^MacRep is ExtCountDec & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=5 & MacSgnSfx & MacProdM & MacRnd & MacRndMask & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc - MacProdM + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# CoMACMR[u|us|su]
+:comacmr^MacSgnSfx MacProdM^MacRnd^MacRep is ExtCountDec & mac_fn_grp=0 & mac_fn_x2=0 & mac_fn_op=7 & MacSgnSfx & MacProdM & MacRnd & MacRndMask & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = MacProdM - acc + MacRnd;
+	CoAccSetR(acc, MacRndMask);
+}
+
+# --- 40-bit arithmetic on the operand pair op1||op2 ------------------------
+
+:coadd MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x02 & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	acc = acc + tmp;
+	CoAccSet(acc);
+}
+
+:coadd2 MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x42 & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	acc = acc + (tmp << 1);
+	CoAccSet(acc);
+}
+
+:cosub MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x0A & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	acc = acc - tmp;
+	CoAccSet(acc);
+}
+
+:cosubr MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x12 & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	acc = tmp - acc;
+	CoAccSet(acc);
+}
+
+:cosub2 MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x4A & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	acc = acc - (tmp << 1);
+	CoAccSet(acc);
+}
+
+:cosub2r MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x52 & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	acc = (tmp << 1) - acc;
+	CoAccSet(acc);
+}
+
+:coload MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x22 & MacOp1 & MacOp2 & MacRep {
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	CoAccSet(tmp);
+}
+
+:coload^"-" MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x2A & MacOp1 & MacOp2 & MacRep {
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	tmp = -tmp;
+	CoAccSet(tmp);
+}
+
+:coload2 MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x62 & MacOp1 & MacOp2 & MacRep {
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	tmp = tmp << 1;
+	CoAccSet(tmp);
+}
+
+:coload2^"-" MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x6A & MacOp1 & MacOp2 & MacRep {
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	tmp = -(tmp << 1);
+	CoAccSet(tmp);
+}
+
+:comax MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x3A & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	if (tmp s<= acc) goto <keep>;
+	CoAccSet(tmp);
+<keep>
+	local NOP:1 = 0;
+}
+
+:comin MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0x7A & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	if (tmp s>= acc) goto <keep>;
+	CoAccSet(tmp);
+<keep>
+	local NOP:1 = 0;
+}
+
+:cocmp MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0xC2 & MacOp1 & MacOp2 & MacRep {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	MSW = CoCompare(acc, tmp);
+}
+
+:coabs MacOp1, MacOp2^MacRep is ExtCountDec & (mac_op=0x83 | mac_op=0x93 | mac_op=0xA3) & mac_fn=0xCA & MacOp1 & MacOp2 & MacRep {
+	local tmp:4 = (zext(MacOp1) << 16) | zext(MacOp2);
+	if (tmp s>= 0) goto <pos>;
+	tmp = -tmp;
+<pos>
+	CoAccSet(tmp);
+}
+
+# --- accumulator-only operations (A3 form) ---------------------------------
+
+:coabs is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0x1A & mac_q=0 & mac_rep=0 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	if (acc s>= 0) goto <pos>;
+	acc = -acc;
+<pos>
+	CoAccSet(acc);
+}
+
+:coneg is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0x32 & mac_q=0 & mac_rep=0 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = -acc;
+	CoAccSet(acc);
+}
+
+:coneg "rnd" is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0x72 & mac_q=0 & mac_rep=0 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = -acc + 0x8000;
+	CoAccSetR(acc, 0:2);
+}
+
+:cornd is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0xB2 & mac_q=0 & mac_imm5=0 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc + 0x8000;
+	CoAccSetR(acc, 0:2);
+}
+
+:conop MacIdx, MacRwInd^MacRep is ExtCountDec & mac_op=0x93 & mac_fn=0x5A & MacIdx & MacRwInd & MacRep {
+	local NOP:1 = 0;
+}
+
+# --- accumulator shifts (A3 form) ------------------------------------------
+
+:coshl "#"^mac_imm5 is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0x82 & mac_q=0 & mac_imm5 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc << mac_imm5;
+	CoAccSet(acc);
+}
+
+:coshl mac_n is ExtCountDec & mac_op=0xA3 & mac_fn=0x8A & mac_q=0 & mac_rep=0 & mac_n {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc << zext(mac_n & 0x1F);
+	CoAccSet(acc);
+}
+
+:coshr "#"^mac_imm5 is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0x92 & mac_q=0 & mac_imm5 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc >> mac_imm5;
+	CoAccSet(acc);
+}
+
+:coshr mac_n is ExtCountDec & mac_op=0xA3 & mac_fn=0x9A & mac_q=0 & mac_rep=0 & mac_n {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc >> zext(mac_n & 0x1F);
+	CoAccSet(acc);
+}
+
+:coashr "#"^mac_imm5 is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0xA2 & mac_q=0 & mac_imm5 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc s>> mac_imm5;
+	CoAccSet(acc);
+}
+
+:coashr mac_n is ExtCountDec & mac_op=0xA3 & mac_fn=0xAA & mac_q=0 & mac_rep=0 & mac_n {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = acc s>> zext(mac_n & 0x1F);
+	CoAccSet(acc);
+}
+
+:coashr "#"^mac_imm5^",rnd" is ExtCountDec & mac_op=0xA3 & mac_n=0 & mac_m=0 & mac_fn=0xB2 & mac_q=0 & mac_imm5 {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = (acc s>> mac_imm5) + 0x8000;
+	CoAccSetR(acc, 0:2);
+}
+
+:coashr mac_n^",rnd" is ExtCountDec & mac_op=0xA3 & mac_fn=0xBA & mac_q=0 & mac_rep=0 & mac_n {
+	local acc:4 = (zext(MAH) << 16) | zext(MAL);
+	acc = (acc s>> zext(mac_n & 0x1F)) + 0x8000;
+	CoAccSetR(acc, 0:2);
+}
+
+# --- transfers -------------------------------------------------------------
+
+# CoMOV [IDXi@], [Rwm@]
+:comov MacIdx, MacRwInd^MacRep is ExtCountDec & mac_op=0xD3 & mac_fn=0x00 & MacIdx & MacRwInd & MacRep {
+	MacIdx = MacRwInd;
+}
+
+# CoSTORE [Rwm@], CoReg
+:costore MacRwInd, MacCoReg^MacRep is ExtCountDec & mac_op=0xB3 & MacRwInd & MacCoReg & MacRep {
+	MacRwInd = MacCoReg;
+}
+
+# CoSTORE Rwm, CoReg
+:costore mac_m, MacCoReg is ExtCountDec & mac_op=0xC3 & mac_q=0 & mac_rep=0 & mac_m & MacCoReg {
+	mac_m = MacCoReg;
+}
