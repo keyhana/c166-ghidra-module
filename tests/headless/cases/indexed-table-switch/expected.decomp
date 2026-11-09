@@ -1,0 +1,18 @@
+===== 002010 =====
+
+void FUN_002010(void)
+
+{
+  ushort unaff_r8;
+
+  if (1 < unaff_r8) {
+    return;
+  }
+                    /* WARNING: Switch is manually overridden */
+  switch(unaff_r8 << 1) {
+  case 0:
+    return;
+  case 2:
+    return;
+  }
+}
