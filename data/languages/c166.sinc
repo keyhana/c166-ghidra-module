@@ -178,6 +178,7 @@ define token instr_16_2(16)
 	bit_z  = (8,11)	    dec
 	bit_q  = (12,15)	dec
 	mask8 = (8,15)
+	imm_lo = (0,7)
 	rel_32 = (0,7)	signed
 ;
 
@@ -1442,12 +1443,17 @@ define pcodeop __atomic;
 # ------
 
 # BFLDL bitoffQ, #mask8, #data8
-:bfldl BitoffAddr, "#"^mask8, DataImmB is ExtCountDec & op=0x0A & BitoffAddr; DataImmB & mask8 {
+# BFLDL carries #mask8 in byte2 and #data8 in byte3 - the opposite byte order
+# from BFLDH - and operates on the low byte of the word. imm_lo (byte2) is the
+# mask, mask8 (the high byte field) is the data; both act on the low byte (no <<8).
+:bfldl BitoffAddr, "#"^imm_lo, "#"^mask8 is ExtCountDec & op=0x0A & BitoffAddr; imm_lo & mask8 {
 	$(PSW_E) = 0;
 	$(PSW_V) = 0;
 	$(PSW_C) = 0;
 	local tmp = BitoffAddr;
-	tmp = (tmp & ~zext(mask8:1)) | zext(DataImmB);
+	local mask_w:2 = zext(imm_lo:1);
+	local data_w:2 = zext(mask8:1);
+	tmp = (tmp & ~mask_w) | data_w;
 	BitoffAddr = tmp;
 	setPostFlags(tmp);
 }
