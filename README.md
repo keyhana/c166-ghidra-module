@@ -109,6 +109,11 @@ parameters correctly.
 - Manually overridden switches show case labels as addresses (e.g., `case 0x12345:`) instead of indices
 - Nested switches may require manual script invocation for each `jmpi`
 
+## Related Projects
+
+- [ghidra-me7-analyzer](https://github.com/nyetwurk/ghidra-me7-analyzer) — Companion Ghidra extension for analyzing Bosch ME7.x ECU binaries.
+- [c167cc](https://github.com/alexandrefelipemuller/c167cc) — Modular C-to-assembly compiler targeting Siemens/Infineon C167CR/C167SR microcontrollers.
+
 ## Project Structure
 
 ```
