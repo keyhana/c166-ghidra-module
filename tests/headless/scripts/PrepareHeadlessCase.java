@@ -13,7 +13,9 @@ import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.Undefined1DataType;
 import ghidra.program.model.data.Undefined2DataType;
 import ghidra.program.model.lang.Register;
+import ghidra.app.util.importer.MessageLog;
 import ghidrainfineon.C166AddressAnalyzer;
+import ghidrainfineon.C166SwitchAnalyzer;
 
 public class PrepareHeadlessCase extends HeadlessScript {
     @Override
@@ -44,6 +46,14 @@ public class PrepareHeadlessCase extends HeadlessScript {
             }
             analyzer.analyzeSet(currentProgram,
                 new AddressSet(currentProgram.getMemory()), monitor);
+        }
+        if (Boolean.parseBoolean(properties.getProperty("c166SwitchAnalysis", "false"))) {
+            C166SwitchAnalyzer switchAnalyzer = new C166SwitchAnalyzer();
+            if (!switchAnalyzer.canAnalyze(currentProgram)) {
+                throw new IllegalStateException("C166SwitchAnalyzer rejected test program");
+            }
+            switchAnalyzer.added(currentProgram,
+                new AddressSet(currentProgram.getMemory()), monitor, new MessageLog());
         }
     }
 

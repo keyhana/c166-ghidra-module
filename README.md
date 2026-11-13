@@ -10,7 +10,7 @@ A **Ghidra** extension for disassembling and decompiling **Infineon C166/C167** 
 - **Full Instruction Set** — All C166 instructions including extended, multiplication/division
 - **DPP Address Translation** — Automatic resolution of 16-bit addresses to 24-bit physical addresses
 - **EXTP/EXTS Support** — Extended page and segment override handling
-- **Switch Table Analysis** — Automatic switch detection
+- **Switch Table Analysis** — Automatic resolution of indirect `jmpi` tables during analysis, including the indexed `mov Rw,[Rw+#off]` form used by CAPCOM interrupt handlers (`C166SwitchAnalyzer`)
 
 ### Included Scripts
 
@@ -107,7 +107,7 @@ parameters correctly.
 ## Known Limitations
 
 - Manually overridden switches show case labels as addresses (e.g., `case 0x12345:`) instead of indices
-- Nested switches may require manual script invocation for each `jmpi`
+- The `C166SwitchAnalyzer` resolves `jmpi` tables automatically during analysis (indexed and base+add forms); the `C166SwitchOverride` script remains for manual re-application or cases where a table bound cannot be inferred
 
 ## Project Structure
 
