@@ -1,0 +1,47 @@
+===== 000000 =====
+
+void RESET_VECTOR(void)
+
+{
+  ushort uVar1;
+
+  uVar1 = ADCIC;
+  ADCIC = uVar1 & 0xff00 | 0x7a;
+  return;
+}
+
+
+===== 000006 =====
+
+undefined2 FUN_000006(void)
+
+{
+  return 0xa57a;
+}
+
+
+===== 000010 =====
+
+undefined2 FUN_000010(void)
+
+{
+  return 0xa5d0;
+}
+
+
+===== 00001A =====
+
+undefined2 FUN_00001a(void)
+
+{
+  return 0xa55b;
+}
+
+
+===== 000024 =====
+
+undefined2 FUN_000024(void)
+
+{
+  return 0xa05a;
+}
