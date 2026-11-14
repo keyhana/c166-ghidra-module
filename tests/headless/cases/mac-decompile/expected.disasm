@@ -1,0 +1,6 @@
+000000	A3342200	coload r3,r4
+000004	9323C002	comul [IDX0+],[r3+]
+000008	9323D002	comac [IDX0+],[r3+]
+00000C	9323D802	comacm [IDX0+],[r3+]
+000010	B3111002	costore [r1+],MAS
+000014	CB00	ret

@@ -74,6 +74,9 @@ any failure is identified as pre-existing, intentional regression, or introduced
 ## Context Pointers
 
 - Instruction semantics or encodings: read `c166ism.md` before editing.
+- MAC unit (C166S v2) encodings are absent from `c166ism.md`, which lists opcodes
+  83/93/A3/B3/C3/D3 as undefined. Source of truth for them is the ST10 family
+  programming manual, section "MAC instruction set".
 - Installation, supported processors, scripts, and calling conventions: read
   `README.md`.
 - Headless imports, projects, flags, or scripts: read
